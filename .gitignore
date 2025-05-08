@@ -19,3 +19,10 @@ Thumbs.db
 
 # 数据文件
 *.txt
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.log
+*.err
+/Figures/
