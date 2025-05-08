@@ -1,0 +1,130 @@
+Directory is /home/songpengcheng/project/Tikhonov-PINNs/Dolfin-adjoint
+This job runs on the following nodes: n0377
+This job has allocated 2 cpu cores.
+Problem: discontinuous
+Time is Tue Apr 15 11:27:04 CST 2025
+---------------------------------------------
+Noise level: 0.01, Lambda: 1e-05
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+h(min):           4.419417e-03.
+Error in state:   2.618984e+01.
+Error in control: 1.630248e+00.
+Results saved to ./DGdiscontinuous/result_05_01/result.txt
+Noise level: 0.1, Lambda: 1e-05
+h(min):           4.419417e-03.
+Error in state:   2.618986e+01.
+Error in control: 1.630954e+00.
+Results saved to ./DGdiscontinuous/result_05_10/result.txt
+Noise level: 0.2, Lambda: 1e-05
+h(min):           4.419417e-03.
+Error in state:   2.618992e+01.
+Error in control: 1.632607e+00.
+Results saved to ./DGdiscontinuous/result_05_20/result.txt
+Noise level: 0.5, Lambda: 1e-05
+h(min):           4.419417e-03.
+Error in state:   2.619028e+01.
+Error in control: 1.630361e+00.
+Results saved to ./DGdiscontinuous/result_05_50/result.txt
+Noise level: 0.01, Lambda: 1e-06
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+h(min):           4.419417e-03.
+Error in state:   2.618984e+01.
+Error in control: 1.630330e+00.
+Results saved to ./DGdiscontinuous/result_06_01/result.txt
+Noise level: 0.1, Lambda: 1e-06
+h(min):           4.419417e-03.
+Error in state:   2.618986e+01.
+Error in control: 1.630666e+00.
+Results saved to ./DGdiscontinuous/result_06_10/result.txt
+Noise level: 0.2, Lambda: 1e-06
+h(min):           4.419417e-03.
+Error in state:   2.618992e+01.
+Error in control: 1.631536e+00.
+Results saved to ./DGdiscontinuous/result_06_20/result.txt
+Noise level: 0.5, Lambda: 1e-06
+h(min):           4.419417e-03.
+Error in state:   2.619023e+01.
+Error in control: 1.607132e+00.
+Results saved to ./DGdiscontinuous/result_06_50/result.txt
+Noise level: 0.01, Lambda: 1e-07
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+h(min):           4.419417e-03.
+Error in state:   2.618984e+01.
+Error in control: 1.630313e+00.
+Results saved to ./DGdiscontinuous/result_07_01/result.txt
+Noise level: 0.1, Lambda: 1e-07
+h(min):           4.419417e-03.
+Error in state:   2.618986e+01.
+Error in control: 1.631255e+00.
+Results saved to ./DGdiscontinuous/result_07_10/result.txt
+Noise level: 0.2, Lambda: 1e-07
+h(min):           4.419417e-03.
+Error in state:   2.618993e+01.
+Error in control: 1.630277e+00.
+Results saved to ./DGdiscontinuous/result_07_20/result.txt
+Noise level: 0.5, Lambda: 1e-07
+h(min):           4.419417e-03.
+Error in state:   2.619031e+01.
+Error in control: 1.624180e+00.
+Results saved to ./DGdiscontinuous/result_07_50/result.txt
+Noise level: 0.01, Lambda: 1e-08
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+h(min):           4.419417e-03.
+Error in state:   2.618984e+01.
+Error in control: 1.630321e+00.
+Results saved to ./DGdiscontinuous/result_08_01/result.txt
+Noise level: 0.1, Lambda: 1e-08
+h(min):           4.419417e-03.
+Error in state:   2.618986e+01.
+Error in control: 1.630606e+00.
+Results saved to ./DGdiscontinuous/result_08_10/result.txt
+Noise level: 0.2, Lambda: 1e-08
+h(min):           4.419417e-03.
+Error in state:   2.618993e+01.
+Error in control: 1.630377e+00.
+Results saved to ./DGdiscontinuous/result_08_20/result.txt
+Noise level: 0.5, Lambda: 1e-08
+h(min):           4.419417e-03.
+Error in state:   2.619037e+01.
+Error in control: 1.589393e+00.
+Results saved to ./DGdiscontinuous/result_08_50/result.txt
+Noise level: 0.01, Lambda: 1e-09
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+h(min):           4.419417e-03.
+Error in state:   2.618984e+01.
+Error in control: 1.630335e+00.
+Results saved to ./DGdiscontinuous/result_09_01/result.txt
+Noise level: 0.1, Lambda: 1e-09
+h(min):           4.419417e-03.
+Error in state:   2.618986e+01.
+Error in control: 1.630846e+00.
+Results saved to ./DGdiscontinuous/result_09_10/result.txt
+Noise level: 0.2, Lambda: 1e-09
+h(min):           4.419417e-03.
+Error in state:   2.618993e+01.
+Error in control: 1.632132e+00.
+Results saved to ./DGdiscontinuous/result_09_20/result.txt
+Noise level: 0.5, Lambda: 1e-09
+h(min):           4.419417e-03.
+Error in state:   2.619032e+01.
+Error in control: 1.601253e+00.
+Results saved to ./DGdiscontinuous/result_09_50/result.txt
+Noise level: 0.01, Lambda: 0.0
+This integral is missing an integration domain.
+---------------------------------------------
+End at Tue Apr 15 13:43:08 CST 2025

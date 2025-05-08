@@ -1,0 +1,29 @@
+dataloader_params:
+  data_path: './data'
+  batch_size: 2048
+
+q_net_params:
+  width_list: [64, 64]
+  box: [1.0, 1.5]
+
+u_net_params:
+  width_list: [64, 64]
+  box: 'none'
+
+loss_params:
+  alpha: 1.0
+  lamb: 1.0e-7
+
+pretrain_optim_params:
+  pretrain_u_lr: 1.0e-4
+  pretrain_u_reg: 0.0
+
+optim_params:
+  q_lr: 1.0e-4
+  u_lr: 1.0e-4
+  weight_decay: 1.0e-8
+  
+train_params:
+  pretrain_epochs_u: 200
+  num_epochs: 50000
+  results_path: './result'

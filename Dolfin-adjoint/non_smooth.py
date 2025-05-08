@@ -1,0 +1,156 @@
+from dolfin import *
+from dolfin_adjoint import *
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import cm  # For custom color mapping
+import random
+from utils import save_result, save_err_q
+
+np.random.seed(123)
+random.seed(123)
+parameters["reorder_dofs_serial"] = False
+# set_log_level(LogLevel.ERROR) 
+
+# Create computational domain
+d = 1.0
+p0 = Point(0.0, 0.0)
+p1 = Point(d, d)
+mesh = RectangleMesh(p0, p1, 320, 320)
+
+# Create `MeshFunction` to mark boundaries
+boundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+class Left(SubDomain):  # Left boundary x = 0
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], 0)
+class Right(SubDomain):  # Right boundary x = d
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], d)
+class Top(SubDomain):  # Top boundary y = d
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], d)
+class Bottom(SubDomain):  # Bottom boundary y = 0
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], 0)
+
+def Inverse_potential(noise_level, lamb, max_iter=30):
+    # Define finite element space
+    V = FunctionSpace(mesh, "Lagrange", 1)
+    W = FunctionSpace(mesh, "Lagrange", 1)
+
+    # Define trial and test functions
+    u = Function(V, name='State')
+    v = TestFunction(V)
+    q = interpolate(Constant(1.0), V)
+
+    # Calculate the alynatic f
+    class RegionExpression(UserExpression):
+        def eval(self, value, x):
+            r2 = (x[0]-0.6)**2 + (x[1]-0.4)**2
+            if r2 < 0.03923317012046905:
+                value[0] = 1.5
+            elif r2 < 0.08317766166719343:
+                value[0] = 0.75 + 2.0 * np.exp(-25*r2)
+            else:
+                value[0] = 1.0
+
+        def value_shape(self):
+            return ()
+
+    alpha = Constant(1.0)
+    u_ex = Expression("1+sin(pi*x[0])*sin(pi*x[1])", degree=1)
+    q_ex = RegionExpression(degree=1)
+    D2u_ex = Expression("-2*pi*pi*sin(pi*x[0])*sin(pi*x[1])", degree=1)
+    f = -D2u_ex + u_ex * q_ex
+
+    # Generate the obesevation data for the state variable
+    u_obs = interpolate(u_ex, V)
+    scale = u_obs.vector().max()
+    random_noise = scale * noise_level * np.random.randn(len(u.vector()))
+    u_obs.vector()[:] += random_noise
+
+    # Assign different numbers to different boundaries
+    Left().mark(boundaries, 1)
+    Right().mark(boundaries, 2)
+    Top().mark(boundaries, 3)
+    Bottom().mark(boundaries, 4)
+
+    # Create marked measure ds
+    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+
+    # Define different Neumann conditions
+    g1 = Expression("-pi*cos(pi*x[0])*sin(pi*x[1])", degree=1)  # Left boundary
+    g2 = Expression("pi*cos(pi*x[0])*sin(pi*x[1])", degree=1)   # Right boundary
+    g3 = Expression("pi*sin(pi*x[0])*cos(pi*x[1])", degree=1)   # Top boundary
+    g4 = Expression("-pi*sin(pi*x[0])*cos(pi*x[1])", degree=1)  # Bottom boundary
+
+    # Define the variational form
+    a = alpha * inner(grad(u), grad(v)) * dx + q * u * v * dx
+    L = f * v * dx + g1 * v * ds(1) + g2 * v * ds(2) + g3 * v * ds(3) + g4 * v * ds(4)
+    F = a - L
+    solve(F == 0, u)
+
+    # Define the cost functional and Tikhonov regularization term
+    cost = 0.5 * (u - u_obs)**2 * dx
+    hess_q = grad(grad(q))
+    Tikh_reg = (q**2 + inner(grad(q), grad(q)) + inner(hess_q, hess_q)) * dx
+
+    err_q_history = []
+    state_history = []
+    # Define the callback function to store control history
+    def eval_cb(control_value):
+        control_error = errornorm(q_ex, control_value) / norm(interpolate(q_ex, V))
+        err_q_history.append(control_error)
+    
+    # Define the optimization problem
+    J = assemble(cost) + lamb * assemble(Tikh_reg)
+    control = Control(q)
+    rf = ReducedFunctional(J, control, eval_cb_pre=eval_cb)
+    q_opt = minimize(rf, bounds=(-3.0, 3.0), tol=1e-10, options={"gtol": 1e-10, "maxiter": max_iter})
+
+    # Recompute the state variable with the optimal control
+    q.assign(q_opt)
+    solve(F == 0, u)
+
+    # Compute the error
+    state_error = errornorm(u_ex, u) / norm(interpolate(u_ex, V))
+    control_error = errornorm(q_ex, q) / norm(interpolate(q_ex, V))
+    print("h(min):           %e." % mesh.hmin())
+    print("Error in state:   %e." % state_error)
+    print("Error in control: %e." % control_error)
+
+    # # Visualization
+    # plot_q = plot(q, cmap=cm.viridis)  # Use Viridis color mapping
+    # plt.colorbar(plot_q)  # Add color bar
+    # plt.title("Control Heatmap")  # Add title
+    # plt.savefig(f"non_smooth/q_{noise_level}_{lamb}.png")
+    # plt.show()
+    # plt.close()
+
+    # plot_u = plot(u, cmap=cm.viridis)  # Use Viridis color mapping
+    # plt.colorbar(plot_u)  # Add color bar
+    # plt.title("State Heatmap")  # Add title
+    # plt.savefig(f"non_smooth/u_{noise_level}_{lamb}.png")
+    # plt.show()
+    # plt.close()
+
+    # out_q = XDMFFile(f"non_smooth/q_scipy_{noise_level}_{lamb}.xdmf")
+    # out_q.write_checkpoint(q_opt, "q", 0.0, XDMFFile.Encoding.HDF5, True)
+    # out_q.write_checkpoint(interpolate(q_ex, V), "q_ex", 1.0, XDMFFile.Encoding.HDF5, True)
+    # out_u = XDMFFile(f"non_smooth/u_scipy_{noise_level}_{lamb}.xdmf")
+    # out_u.write_checkpoint(u, "u", 0.0, XDMFFile.Encoding.HDF5, True)
+    # out_u.write_checkpoint(interpolate(u_ex, V), "u_ex", 1.0, XDMFFile.Encoding.HDF5, True)
+
+    save_result(u, q, lamb, noise_level, path="./non_smooth/")
+    save_err_q(err_q_history, lamb, noise_level, path="./non_smooth/")
+
+    tape = get_working_tape()
+    tape.clear_tape()
+    return J, state_error, err_q_history
+
+if __name__ == "__main__":
+    lamb_list = [1e-7]
+    delta_list = [0.2]
+    for lamb in lamb_list:
+        for delta in delta_list:
+            print(f"Noise level: {delta}, Lambda: {lamb}")
+            _, _, err_q = Inverse_potential(delta, lamb, max_iter=200)

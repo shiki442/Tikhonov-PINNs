@@ -1,0 +1,21 @@
+# MATLAB 临时文件
+*.asv
+*.mexa64
+*.mexmaci64
+*.mexw64
+
+# MATLAB 自动生成的缓存和日志文件
+*_flymake.*
+*_cache.*
+*.log
+
+# MATLAB 工程文件（如果不需要跟踪）
+*.slx
+*.mdl
+
+# 其他系统自动生成
+.DS_Store
+Thumbs.db
+
+# 数据文件
+*.txt

@@ -1,0 +1,20 @@
+// 泊松方程 -Δu = f 在Ω内，u = g 在∂Ω上
+
+mesh Th = square(40,40); // 单位正方形网格
+fespace Vh(Th,P2); // P1有限元空间
+
+func f = x*y;
+func g = sin(pi*x)*sin(pi*y);
+
+// func f = 2*sin(x)*sin(y);
+// func g = -sin(x)*sin(y);
+
+Vh u,v; // 未知函数和测试函数
+
+problem Poisson(u,v) =
+    int2d(Th)(dx(u)*dx(v) + dy(u)*dy(v)) // 双线性形式
+    - int2d(Th)(f*v) // 线性形式
+    + on(1,2,3,4,u=g); // 边界条件
+
+Poisson; // 求解
+plot(u, value=true, fill=true); // 可视化

@@ -1,0 +1,82 @@
+// Macro
+macro grad(u) [dx(u), dy(u)] //
+macro laplace(u, v) grad(u)'*grad(v) //
+
+real alpha = 1.0;
+real lambda = 1.0e-6;
+real d = 1.0;
+int n = 100;
+real J;
+real eta = 1e-3;
+int maxIter = 100;
+
+border bottom(t=0,d) { x=t; y=0; label=1; }
+border right(t=0,d) { x=d; y=t; label=2; }
+border top(t=0,d) { x=d-t; y=d; label=3; }
+border left(t=0,d) { x=0; y=d-t; label=4; }
+
+mesh Th = buildmesh(bottom(n) + right(n) + top(n) + left(n));
+
+func uex = 1+sin(pi*x)*sin(pi*y);
+func qex = 1+0.5*sin(pi*x)*sin(pi*y);
+func f = 2*alpha*pi*pi*sin(pi*x)*sin(pi*y)+uex*qex;
+func g1 = -pi*sin(pi*x)*cos(pi*y);
+func g2 = pi*cos(pi*x)*sin(pi*y);
+func g3 = pi*sin(pi*x)*cos(pi*y);
+func g4 = -pi*cos(pi*x)*sin(pi*y);
+
+
+real tol = 1e-6;
+real diff = 1.0;
+int iter = 0;
+
+fespace Vh(Th, P2);
+Vh u, p, v;
+Vh q, dq;
+Vh noise;
+
+real sigma = 0.01;
+real mean = 0.0;
+for (int i = 0; i < noise.n; i++) {
+    real u1 = randreal1();
+    real u2 = randreal1();
+    real z = sqrt(-2 * log(u1)) * cos(2 * pi * u2);
+    noise[][i] = mean + sigma * z;
+}
+Vh uobs = uex;
+// uobs = uobs + noise; // Add noise to the observation
+
+// q = qex + 0.2;
+// for (int i = 0; i < q.n; i++) {
+//     real u = 0.5 * randreal1();
+//     q[][i] = q[][i] + u;
+// }
+q = 1.5; // Initial guess for q[]
+
+
+
+while (diff > tol && iter < maxIter) {
+    solve stateEq(u, v) =
+        int2d(Th)(alpha * laplace(u, v) + q * u * v)
+        - int2d(Th)(f * v)
+        - int1d(Th, 1)(g1 * v) - int1d(Th, 2)(g2 * v)
+        - int1d(Th, 3)(g3 * v) - int1d(Th, 4)(g4 * v);
+
+    solve adjointEq(p, v) =
+        int2d(Th)(alpha * laplace(p, v) + q * p * v)
+        + int2d(Th)(2*(u-uex) * v)
+        - int1d(Th, 1)(2*(u-uex) * v) - int1d(Th, 2)(2*(u-uex) * v) 
+        - int1d(Th, 3)(2*(u-uex) * v) - int1d(Th, 4)(2*(u-uex) * v);
+    
+    dq = 2 * lambda * q + u * p;
+    q = q - eta * dq;
+
+    J = int2d(Th)((u - uex)^2);
+    diff = int2d(Th)((q - qex)^2);
+
+    iter++;
+    cout << "Iteration: " << iter << ", J: " << J << ", Error: " << diff << endl;
+}
+
+Vh e = q - qex;
+plot(q, value=true, fill=true, nbiso=100, wait=true);
