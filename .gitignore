@@ -25,4 +25,9 @@ Thumbs.db
 *.pdf
 *.log
 *.err
-/Figures/
+*.out
+Figures/
+TikPINN/output/
+TikPINN/data/
+TikFEM/output/
+TikPINN_partobs/
