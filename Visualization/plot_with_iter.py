@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import numpy as np
 import pandas as pd
 
@@ -26,35 +27,44 @@ fig = plt.figure(figsize=(14, 6))
 gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1])
 ax0 = fig.add_subplot(gs[0])
 ax1 = fig.add_subplot(gs[1])
+axins = ax1.inset_axes([0.2, 0.5, 0.5, 0.35])  # [left, bottom, width, height]
 
 for i in range(len(idxs)):
     _, delta_str = idxs[i].split('_')
     if delta_str == '01':
         delta_str = '1'
     # Load data
-    err_q = np.loadtxt(f"./Dolfin-adjoint/non_smooth/result_{idxs[i]}/err_with_iter.txt")
+    err_q = np.loadtxt(f"./TikFEM/output/non_smooth/result_{idxs[i]}/err_with_iter.txt")
     # err_q = data['err_q']
     x = np.arange(1, len(err_q) + 1)
     err_q_smoothed = smooth_data(err_q, window_size=1)
-    n = len(x) - 10
-    ax0.plot(x[:130], err_q_smoothed[:130], label=r'noise level: ' + delta_str + '%', linewidth=2)
+    n_fem = min(len(x), 130)
+    ax0.plot(x[:n_fem], err_q_smoothed[:n_fem], label=r'noise level: ' + delta_str + '%', linewidth=2)
     ax0.set_yscale('log')
-    ax0.set_ylim(1e-2, 1e1)
+    ax0.set_ylim(1e-2, 2e1)
     ax0.set_title(r"err($q_{fem}$)", fontsize=16)
     ax0.set_xlabel("Iteration")
 
-    loss_nn = pd.read_csv(f'./TikPINN_fullobs/output/non_smooth/result_{idxs[i]}/loss.txt', header=None, sep=',').values
+    loss_nn = pd.read_csv(f'./TikPINN/output/non_smooth/result_{idxs[i]}/loss.txt', header=None, sep=',').values
     err_qnn = loss_nn[:, 1]
     err_qnn_smoothed = smooth_data(err_qnn, window_size=1)
-    n = len(err_qnn_smoothed)
-    x = np.arange(1, n+1)
-    ax1.plot(x[:30000], err_qnn_smoothed[:30000], label=r'noise level: ' + delta_str + '%', linewidth=2)
+    n_nn = len(err_qnn_smoothed)
+    n_nn = min(n_nn, 30000)
+    x = np.arange(1, n_nn+1)
+    ax1.plot(x[:n_nn], err_qnn_smoothed[:n_nn], label=r'noise level: ' + delta_str + '%', linewidth=2)
     ax1.set_yscale('log')
-    ax1.set_ylim(1e-4, 1e0)
+    ax1.set_ylim(1e-4, 2e1)
     ax1.set_title(r"err($q_{pinn}$)", fontsize=16)
     ax1.set_xlabel("Iteration")
 
+    axins.plot(x[:n_nn], err_qnn_smoothed[:n_nn])
+    axins.set_yscale('log')
+    axins.set_xlim(0, n_fem)
+    axins.set_ylim(1e-2, 1e1)
+
     fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, hspace=0.0, wspace=0.1)
+
+mark_inset(ax1, axins, loc1=3, loc2=1, fc="none", ec='grey', lw=1, linestyle='--')
 
 ax0.legend()
 ax1.legend() 
