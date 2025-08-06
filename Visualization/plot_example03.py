@@ -60,14 +60,14 @@ def plot_subplots(values, idxs, title, filename, vmin, vmax):
 
     cbar_ax = fig.add_subplot(gs[-1])  # Last column for colorbar
     cbar = fig.colorbar(imgs[0], cax=cbar_ax)
-    if title in [r'$|u_{\text{pinn}}-u^{\dagger}|$', r'$|q_{\text{pinn}}-q^{\dagger}|$',
-                 r'$|u_{\text{fem}}-u^{\dagger}|$', r'$|q_{\text{fem}}-q^{\dagger}|$']:
+    if title in [r'$|u_{pinn}-u^{\dagger}|$', r'$|q_{pinn}-q^{\dagger}|$',
+                 r'$|u_{fem}-u^{\dagger}|$', r'$|q_{fem}-q^{\dagger}|$']:
         cbar.ax.yaxis.set_major_formatter(ticker.FuncFormatter(format_func))
     cbar.ax.tick_params(labelsize=12)  # Set colorbar tick label font size
     # plt.tight_layout()  # Automatically adjust subplot layout
     top = 0.9 if is_first_line else 0.98
     fig.subplots_adjust(left=0.02, right=0.95, top=top, bottom=0.02, hspace=0.0, wspace=0.1)
-    plt.savefig(filename, format='pdf', dpi=1200)
+    plt.savefig(filename, format='eps')
     plt.show()
     plt.close()
 
@@ -75,9 +75,9 @@ def plot_subplots(values, idxs, title, filename, vmin, vmax):
 exp_idx = '01'
 idxs_nn = ['09_01', '09_10', '07_20', '09_50']
 files = ['udag', 'qdag', 'unn', 'qnn', 'unn_err', 'qnn_err', 'ufem', 'q_fem', 'ufem_err', 'qfem_err']
-titles = [r'$u^{\dagger}$', r'$q^{\dagger}$', r'$u_{\text{pinn}}$', r'$q_{\text{pinn}}$',
-          r'$|u_{\text{pinn}}-u^{\dagger}|$', r'$|q_{\text{pinn}}-q^{\dagger}|$', r'$u_{\text{fem}}$', 
-          r'$q_{\text{fem}}$', r'$|u_{\text{fem}}-u^{\dagger}|$', r'$|q_{\text{fem}}-q^{\dagger}|$']
+titles = [r'$u^{\dagger}$', r'$q^{\dagger}$', r'$u_{pinn}$', r'$q_{pinn}$',
+          r'$|u_{pinn}-u^{\dagger}|$', r'$|q_{pinn}-q^{\dagger}|$', r'$u_{fem}$', 
+          r'$q_{fem}$', r'$|u_{fem}-u^{\dagger}|$', r'$|q_{fem}-q^{\dagger}|$']
 vmins = [1.0, 0.98, 1.0, 0.98, 0.0, 0.0, 1.0, 0.98, 0.00, 0.0]
 vmaxs = [2.0, 1.52, 2.0, 1.52, 0.005, 0.2, 2.0, 1.52, 0.005, 0.2]
 lamda = '07'
@@ -128,5 +128,5 @@ for i in range(len(idxs_nn)):
 # Plot using subplots
 for k in range(len(titles)):
     values = [u_dags, q_dags, u_nns, q_nns, unn_errs, qnn_errs, u_fems, q_fems, ufem_errs, qfem_errs]
-    filename = os.path.join(directory, f'{files[k]}.pdf')
+    filename = os.path.join(directory, f'{files[k]}.eps')
     plot_subplots(values[k], idxs_nn, titles[k], filename, vmins[k], vmaxs[k])

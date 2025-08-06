@@ -21,7 +21,7 @@ echo ---------------------------------------------
 
 source /project/songpengcheng/miniconda3/etc/profile.d/conda.sh
 conda activate torch
-/project/songpengcheng/miniconda3/envs/torch/bin/python -u main.py --config_path=./params.yml
+/project/songpengcheng/miniconda3/envs/torch/bin/python -u main.py --config_path=./config/params.yaml
 
 echo ---------------------------------------------
 echo End at `date`

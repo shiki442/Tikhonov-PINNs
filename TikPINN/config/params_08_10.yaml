@@ -1,0 +1,42 @@
+dataloader_params:
+  batch_size: 12500
+  data_path: ./data
+loss_params:
+  alpha: 1.0
+  lamb: 1.0e-08
+optim_params:
+  name: adam
+  q_lr: 0.0002
+  u_lr: 0.0002
+optim_params_lbfgs:
+  name: lbfgs
+  q_lr: 1.0
+  u_lr: 1.0
+pretrain_optim_params:
+  pretrain_u_lr: 0.001
+  pretrain_u_reg: 0.0
+q_net_params:
+  box:
+  - 0.0
+  - 10.0
+  width_list:
+  - 64
+  - 64
+scheduler_params:
+  cosine_annealing: true
+  total_steps: 8000
+  warmup_steps: 1000
+task:
+  idx: '04'
+  noise_str: '10'
+train_params:
+  num_epochs:
+  - 8000
+  - 500
+  pretrain_epochs_u: 500
+  results_path: ./output/
+u_net_params:
+  box: none
+  width_list:
+  - 64
+  - 64

@@ -31,3 +31,10 @@ TikPINN/output/
 TikPINN/data/
 TikFEM/output/
 TikPINN_partobs/
+
+# Python 缓存文件
+*.py[cod]
+*/__pycache__/
+*.pyc
+./TikPINN/model/__pycache__/
+./TikPINN/config/

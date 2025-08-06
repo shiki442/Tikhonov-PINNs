@@ -68,5 +68,5 @@ mark_inset(ax1, axins, loc1=3, loc2=1, fc="none", ec='grey', lw=1, linestyle='--
 
 ax0.legend()
 ax1.legend() 
-plt.savefig(f'./Figures/err_q.pdf', format='pdf', dpi=1200)
+plt.savefig(f'./Figures/err_q.eps', format='eps', dpi=1200)
 plt.show()

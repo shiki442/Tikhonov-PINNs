@@ -14,7 +14,7 @@ if ~exist(folder, 'dir')
     mkdir(folder); 
 end
 for delta = [0.01,0.10,0.20]
-    data_mat = generate_date(q_dagger,u_dagger,grad_u_x,grad_u_y,laplace_u,delta);
+    data_mat = generate_date_2d(q_dagger,u_dagger,grad_u_x,grad_u_y,laplace_u,delta);
     file_name = ['../data/example02data',num2str(100*delta,'%02d'),'.txt'];
     fprintf([file_name,' finished.\n']);
     writematrix(data_mat,file_name,'Delimiter','comma');
