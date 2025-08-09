@@ -20,7 +20,7 @@ os.environ['MASTER_ADDR'] = '127.0.0.1'
 os.environ['MASTER_PORT'] = '64060'
 
 
-def main(rank, world_size=1, config=None):
+def main(rank, world_size, config):
     # problem parameters
     idx = config['task']['idx']
     noise_str = config['task']['noise_str']
@@ -58,12 +58,13 @@ def main(rank, world_size=1, config=None):
     tikpinn_loss = get_loss(**config["loss_params"])
     print(f"Define optimizer ...")
     pretrain_u_optimizer = get_pretrain_optimizer(u_net, **config["pretrain_optim_params"])
-    optimizer_adam = get_optimizer(q_net, u_net, **config["optim_params"])
+    optimizer_adam = get_optimizer(q_net, u_net, **config["optim_params_adam"])
     optimizer_lbfgs = get_optimizer(q_net, u_net, **config["optim_params_lbfgs"])
-    optimizers = [optimizer_adam, optimizer_lbfgs]
-    scheduler = get_scheduler(optimizer_adam, **config["scheduler_params"])
+    scheduler_adam = get_scheduler(optimizer_adam, **config["scheduler_params"])
+    optimizers = [optimizer_lbfgs, optimizer_adam]
+    schedulers = [None, scheduler_adam]  # No scheduler for LBFGS
     print(f"Begin training ...")
-    train(rank, dataloader, q_net, u_net, tikpinn_loss, pretrain_u_optimizer, optimizers, scheduler, **config["train_params"])
+    train(rank, dataloader, q_net, u_net, tikpinn_loss, pretrain_u_optimizer, optimizers, schedulers, **config["train_params"])
 
     if world_size > 1:
         dist.destroy_process_group()

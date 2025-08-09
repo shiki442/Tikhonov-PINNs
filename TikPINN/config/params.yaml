@@ -18,26 +18,34 @@ pretrain_optim_params:
   pretrain_u_lr: 1.0e-3
   pretrain_u_reg: 0.0
 
-optim_params:
-  q_lr: 2.0e-4
-  u_lr: 2.0e-4
+optim_params_adam:
+  q_lr: 1.0e-4
+  u_lr: 1.0e-4
   name: 'adam'
+  options: 
+    weight_decay: 0.0
 
 optim_params_lbfgs:
-  q_lr: 1.0
-  u_lr: 1.0
+  q_lr: 0.2
+  u_lr: 0.2
   name: 'lbfgs'
+  options: 
+    max_iter: 50
+    tolerance_grad: 1.0e-7
+    tolerance_change: 1.0e-12
+    history_size: 100
+    line_search_fn: 'strong_wolfe'
 
 scheduler_params:
   warmup_steps: 1000
-  total_steps: 8000
-  cosine_annealing: true
+  total_steps: 10000
+  cosine_annealing: false
 
 train_params:
-  pretrain_epochs_u: 500
-  num_epochs: [9500, 500]
+  pretrain_epochs_u: 20
+  num_epochs: [50, 9950]
   results_path: './output/'
 
 task:
-  idx: '04'
-  noise_str: '01'
+  idx: '03'
+  noise_str: '10'

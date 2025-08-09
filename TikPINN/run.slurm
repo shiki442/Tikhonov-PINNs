@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --output job-%A_%a.out
 #SBATCH --error job-%A_%a.err
-#SBATCH --array=1-4%4
+#SBATCH --array=1-8%8
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 

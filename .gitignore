@@ -36,5 +36,5 @@ TikPINN_partobs/
 *.py[cod]
 */__pycache__/
 *.pyc
-./TikPINN/model/__pycache__/
-./TikPINN/config/
+TikPINN/model/__pycache__/
+TikPINN/config/

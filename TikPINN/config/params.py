@@ -4,18 +4,19 @@ import os
 import numpy as np
 
 # 读取 params.yaml 文件
-with open('D:/OneDrive/PC/Code Library/Tikhonov-PINNs/TikPINN/config/params.yaml', 'r', encoding='utf-8') as f:
+with open('./TikPINN/config/params.yaml', 'r', encoding='utf-8') as f:
     params = yaml.safe_load(f)
 
-# ids = ['01', '02', '05', '10', '20', '30', '40', '50']
+ids = ['01', '02', '05', '10', '20', '30', '40', '50']
 # lambdas = [1.0e-4, 1.0e-5, 1.0e-6, 1.0e-7, 1.0e-8, 1.0e-9, 0.0]
-ids = ['01', '10', '20', '50']
+# ids = ['01', '10', '20', '50']
 lambdas = [1.0e-6, 1.0e-7, 1.0e-8, 1.0e-9, 0.0]
+dir_path = ""
 for noise_str in ids:
     for lamb in lambdas:
         params["task"]["noise_str"] = noise_str
         params["loss_params"]["lamb"] = lamb
-        dir_path = f"D:/OneDrive/PC/Code Library/Tikhonov-PINNs/TikPINN/config/"
+        dir_path = f"./TikPINN/config/"
         # 保存为新的 yaml 文件
         if lamb == 0.0:
             path = os.path.join(dir_path, f"params_00_{noise_str}.yaml")

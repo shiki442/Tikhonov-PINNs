@@ -4,14 +4,22 @@ dataloader_params:
 loss_params:
   alpha: 1.0
   lamb: 1.0e-09
-optim_params:
+optim_params_adam:
   name: adam
-  q_lr: 0.0002
-  u_lr: 0.0002
+  options:
+    weight_decay: 0.0
+  q_lr: 0.0001
+  u_lr: 0.0001
 optim_params_lbfgs:
   name: lbfgs
-  q_lr: 1.0
-  u_lr: 1.0
+  options:
+    history_size: 100
+    line_search_fn: strong_wolfe
+    max_iter: 50
+    tolerance_change: 1.0e-12
+    tolerance_grad: 1.0e-07
+  q_lr: 0.2
+  u_lr: 0.2
 pretrain_optim_params:
   pretrain_u_lr: 0.001
   pretrain_u_reg: 0.0
@@ -23,17 +31,17 @@ q_net_params:
   - 64
   - 64
 scheduler_params:
-  cosine_annealing: true
-  total_steps: 8000
+  cosine_annealing: false
+  total_steps: 10000
   warmup_steps: 1000
 task:
   idx: '04'
   noise_str: '01'
 train_params:
   num_epochs:
-  - 8000
-  - 500
-  pretrain_epochs_u: 500
+  - 50
+  - 9950
+  pretrain_epochs_u: 20
   results_path: ./output/
 u_net_params:
   box: none

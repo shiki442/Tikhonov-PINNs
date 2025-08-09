@@ -12,7 +12,7 @@ class ReLU2(nn.Module):
 
 def get_network(**kwargs) -> nn.Module:
     activation = nn.Tanh()
-    return MLP(in_features=1, out_features=1, activation=activation, **kwargs)
+    return MLP(in_features=2, out_features=1, activation=activation, **kwargs)
 
 
 @torch.no_grad()

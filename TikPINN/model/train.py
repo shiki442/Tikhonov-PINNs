@@ -4,8 +4,6 @@ import time
 import numpy as np
 import torch
 
-from model.optim import get_optimizer
-
 from .loss import relative_error_u, relative_error_q
 from .problem import evaluate_u, evaluate_q
 from torch.optim.lr_scheduler import LambdaLR
@@ -26,7 +24,7 @@ def _generate_uniform_mesh(n: int, d: int = 2):
 
 
 def _save_results(device, epoch, q_net, u_net, results_path):
-    x = _generate_uniform_mesh(500, d=1).to(device)
+    x = _generate_uniform_mesh(500, d=2).to(device)
     q_val = evaluate_q(q_net, x)
     u_val = evaluate_u(u_net, x)
     results = torch.cat((x, q_val, u_val), dim=1)
@@ -71,7 +69,7 @@ def _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn) -> tuple:
     return (epoch_loss, epoch_err_u)
 
 
-def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer) -> None:
+def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler) -> None:
     """Train one epoch"""
     q_net.train()
     u_net.train()
@@ -88,6 +86,9 @@ def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer) -> None:
         # load data to CUDA
         sample = sample[0].to(device)
         optimizer.step(closure)
+
+    
+    if scheduler is not None: scheduler.step()
 
 
 def _validate_epoch(device, dataloader, q_net, u_net, loss_fn) -> tuple:
@@ -117,7 +118,7 @@ def _validate_epoch(device, dataloader, q_net, u_net, loss_fn) -> tuple:
 
 
 def train(
-    device, dataloader, q_net, u_net, loss_fn, pretrain_optimizer_u, optimizers, scheduler, pretrain_epochs_u, num_epochs, results_path
+    device, dataloader, q_net, u_net, loss_fn, pretrain_optimizer_u, optimizers, schedulers, pretrain_epochs_u, num_epochs, results_path
 ) -> None:
     for epoch in range(pretrain_epochs_u):
         start = time.time()
@@ -134,9 +135,9 @@ def train(
             _save_results(device, epoch, q_net, u_net, results_path)
         # switch to lbfgs optimizer after adam epochs
         optimizer = optimizers[0] if epoch < num_epochs[0] else optimizers[1]
+        scheduler = schedulers[0] if epoch < num_epochs[0] else schedulers[1]
         start = time.time()
-        _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer)
-        scheduler.step()
+        _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler)
         loss_val, err_u, err_f = _validate_epoch(device, dataloader, q_net, u_net, loss_fn)
         if device == 0 or str(device) in ['cpu', 'cuda', 'cuda:0']:
             results_mat[epoch, 0:3] = (loss_val, err_f, err_u)
