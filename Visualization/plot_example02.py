@@ -73,8 +73,8 @@ def plot_subplots(values, idxs, title, filename, vmin, vmax):
 
 # File names
 exp_idx = '01'
-idxs_nn = ['09_01', '00_10', '09_20', '09_50']
-files = ['udag', 'qdag', 'unn', 'qnn', 'unn_err', 'qnn_err', 'ufem', 'q_fem', 'ufem_err', 'qfem_err']
+idxs_nn = ['00_01', '00_10', '09_20', '07_50']
+files = ['non_smooth_udag', 'non_smooth_qdag', 'non_smooth_unn', 'non_smooth_qnn', 'non_smooth_unn_err', 'non_smooth_qnn_err', 'non_smooth_ufem', 'non_smooth_q_fem', 'non_smooth_ufem_err', 'non_smooth_qfem_err']
 titles = [r'$u^{\dagger}$', r'$q^{\dagger}$', r'$u_{pinn}$', r'$q_{pinn}$',
           r'$|u_{pinn}-u^{\dagger}|$', r'$|q_{pinn}-q^{\dagger}|$', r'$u_{fem}$', 
           r'$q_{fem}$', r'$|u_{fem}-u^{\dagger}|$', r'$|q_{fem}-q^{\dagger}|$']
@@ -96,7 +96,7 @@ index = '50000'
 q_dags, u_dags, q_nns, u_nns, qnn_errs, unn_errs, q_fems, u_fems, qfem_errs, ufem_errs = [], [], [], [], [], [], [], [], [], []
 
 for i in range(len(idxs_nn)):
-    file_path = f'./TikPINN/output/non_smooth/result_{idxs_nn[i]}/result50000.txt'
+    file_path = f'./TikPINN/output/average02/data2468/result_{idxs_nn[i]}/result50000.txt'
     results_nn = pd.read_csv(file_path, header=None, sep=',').values
 
     x = results_nn[:, 0]
