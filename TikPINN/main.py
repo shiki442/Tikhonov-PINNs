@@ -10,7 +10,7 @@ from model.loss import get_loss
 from model.nn import get_network
 from model.optim import get_optimizer, get_pretrain_optimizer, get_scheduler
 from model.train import train
-from model.utils import output_path, set_seed
+from model.utils import check_config, set_seed
 
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, DistributedSampler, Dataset
@@ -24,13 +24,13 @@ def main(rank, world_size, config):
     # problem parameters
     idx = config['task']['idx']
     noise_str = config['task']['noise_str']
-    output_path(config, idx, noise_str)
+    check_config(config)
 
     if world_size > 1:
         # Initialize the process group for distributed training
         dist.init_process_group("nccl", init_method="env://", rank=rank, world_size=world_size)
         torch.cuda.set_device(rank)
-        set_seed(rank=rank)
+        set_seed(rank=rank, seed=config["seed"])
 
         print(f"Construct neural networks ...")
         q_net = get_network(**config["q_net_params"]).to(rank)
@@ -44,7 +44,7 @@ def main(rank, world_size, config):
         dataloader = get_ddp_dataloader(idx=idx, noise_str=noise_str, world_size=world_size, rank=rank, **config["dataloader_params"])
 
     elif str(rank) in ['cpu', 'cuda', 'cuda:0']:
-        set_seed(rank=0)
+        set_seed(rank=0, seed=config["seed"])
         print(f"Construct neural networks ...")
         q_net = get_network(**config["q_net_params"]).to(rank)
         u_net = get_network(**config["u_net_params"]).to(rank)

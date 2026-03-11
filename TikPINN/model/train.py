@@ -6,7 +6,10 @@ import torch
 
 from .loss import relative_error_u, relative_error_q
 from .problem import evaluate_u, evaluate_q
+from .utils import u_dagger, q_dagger, relative_error
 from torch.optim.lr_scheduler import LambdaLR
+
+# from torch.utils.tensorboard import SummaryWriter
 
 
 @torch.no_grad()
@@ -24,7 +27,8 @@ def _generate_uniform_mesh(n: int, d: int = 2):
 
 
 def _save_results(device, epoch, q_net, u_net, results_path):
-    x = _generate_uniform_mesh(500, d=2).to(device)
+    d = q_net.in_layer.in_features
+    x = _generate_uniform_mesh(500, d).to(device)
     q_val = evaluate_q(q_net, x)
     u_val = evaluate_u(u_net, x)
     results = torch.cat((x, q_val, u_val), dim=1)
@@ -47,26 +51,26 @@ def _pretrain_u_epoch(device, dataloader, u_net, loss_fn, optimizer) -> None:
         optimizer.step()
 
 
-def _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn) -> tuple:
+def _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn, idx) -> tuple:
     """Validate"""
     u_net.eval()
     dataset_sizes = 0
     batch_loss = 0.0
-    batch_err_u = 0.0
+    d = u_net.in_layer.in_features
+    x = _generate_uniform_mesh(500, d).to(device)
+    err_u = relative_error(u_net(x), u_dagger(x, idx))
+
     for _, sample in enumerate(dataloader):
         # load data to CUDA
         sample = sample[0].to(device)
         # forward and compute loss
         loss = loss_fn.measurement(u_net, sample)
-        rel_err_u = relative_error_u(u_net, sample)
         # compute step loss and accuracy
         dataset_sizes += sample.size(0)
         batch_loss += loss.item() * sample.size(0)
-        batch_err_u += rel_err_u.item() * sample.size(0)
     # compute epoch loss and relative error
     epoch_loss = batch_loss / dataset_sizes
-    epoch_err_u = batch_err_u / dataset_sizes
-    return (epoch_loss, epoch_err_u)
+    return (epoch_loss, err_u.item())
 
 
 def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler) -> None:
@@ -87,43 +91,54 @@ def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler
         sample = sample[0].to(device)
         optimizer.step(closure)
 
-    
-    if scheduler is not None: scheduler.step()
+    if scheduler is not None:
+        scheduler.step()
 
 
-def _validate_epoch(device, dataloader, q_net, u_net, loss_fn) -> tuple:
+def _validate_epoch(device, dataloader, q_net, u_net, loss_fn, idx) -> tuple:
     """Validate"""
     q_net.eval()
     u_net.eval()
     dataset_sizes = 0
     batch_loss = 0.0
-    batch_err_f, batch_err_u = 0.0, 0.0
+    d = u_net.in_layer.in_features
+    x = _generate_uniform_mesh(500, d).to(device)
+    err_u = relative_error(u_net(x), u_dagger(x, idx))
+    err_q = relative_error(q_net(x), q_dagger(x, idx))
+
     for _, sample in enumerate(dataloader):
         # load data to CUDA
         sample = sample[0].to(device)
         # forward and compute loss
         loss = loss_fn(q_net, u_net, sample)
-        rel_err_f = relative_error_q(q_net, sample)
-        rel_err_u = relative_error_u(u_net, sample)
+
         # compute step loss and accuracy
         dataset_sizes += sample.size(0)
         batch_loss += loss.item() * sample.size(0)
-        batch_err_f += rel_err_f.item() * sample.size(0)
-        batch_err_u += rel_err_u.item() * sample.size(0)
+
     # compute epoch loss and relative error
     epoch_loss = batch_loss / dataset_sizes
-    epoch_err_f = batch_err_f / dataset_sizes
-    epoch_err_u = batch_err_u / dataset_sizes
-    return (epoch_loss, epoch_err_u, epoch_err_f)
+    return (epoch_loss, err_u.item(), err_q.item())
 
 
 def train(
-    device, dataloader, q_net, u_net, loss_fn, pretrain_optimizer_u, optimizers, schedulers, pretrain_epochs_u, num_epochs, results_path
+    device,
+    dataloader,
+    q_net,
+    u_net,
+    loss_fn,
+    pretrain_optimizer_u,
+    optimizers,
+    schedulers,
+    pretrain_epochs_u,
+    num_epochs,
+    results_path,
+    idx,
 ) -> None:
     for epoch in range(pretrain_epochs_u):
         start = time.time()
         _pretrain_u_epoch(device, dataloader, u_net, loss_fn, pretrain_optimizer_u)
-        loss, err_u = _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn)
+        loss, err_u = _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn, idx)
         if device == 0 or str(device) in ['cpu', 'cuda', 'cuda:0']:
             print(f"Pre-Training for u: [{epoch + 1:>3d}/{pretrain_epochs_u:>3d}]", end=" ")
             print(f"spend time: [{(time.time() - start):6.2f} sec] ==", end=" ")
@@ -138,7 +153,7 @@ def train(
         scheduler = schedulers[0] if epoch < num_epochs[0] else schedulers[1]
         start = time.time()
         _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler)
-        loss_val, err_u, err_f = _validate_epoch(device, dataloader, q_net, u_net, loss_fn)
+        loss_val, err_u, err_f = _validate_epoch(device, dataloader, q_net, u_net, loss_fn, idx)
         if device == 0 or str(device) in ['cpu', 'cuda', 'cuda:0']:
             results_mat[epoch, 0:3] = (loss_val, err_f, err_u)
             print(f"== Epochs: [{epoch + 1:>5d}/{total_epochs:>5d}] ==", end=" ")

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm  # For custom color mapping
 import random
-from utils import generate_uniform_mesh, save_result
+from utils import generate_uniform_mesh, save_result, save_err_q
 
 np.random.seed(123)
 random.seed(123)
@@ -15,7 +15,7 @@ d = 1.0
 # Create computational domain
 p0 = Point(0.0, 0.0)
 p1 = Point(d, d)
-mesh = RectangleMesh(p0, p1, 50, 50)
+mesh = RectangleMesh(p0, p1, 320, 320)
 
 # Create `MeshFunction` to mark boundaries
 boundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
@@ -32,7 +32,7 @@ class Bottom(SubDomain):  # Bottom boundary y = 0
     def inside(self, x, on_boundary):
         return on_boundary and near(x[1], 0)
         
-def Inverse_potential(noise_level, lamb):
+def Inverse_potential(noise_level, lamb, max_iter=20):
     # Define finite element space
     V = FunctionSpace(mesh, "Lagrange", 1)
 
@@ -80,11 +80,18 @@ def Inverse_potential(noise_level, lamb):
     hess_q = grad(grad(q))
     Tikh_reg = (q**2 + inner(grad(q), grad(q)) + inner(hess_q, hess_q)) * dx
 
+    err_q_history = []
+    state_history = []
+    # Define the callback function to store control history
+    def eval_cb(control_value):
+        control_error = errornorm(q_ex, control_value) / norm(interpolate(q_ex, V))
+        err_q_history.append(control_error)
+
     # Define the optimization problem
     J = assemble(cost) + lamb * assemble(Tikh_reg)
     control = Control(q)
-    rf = ReducedFunctional(J, control)
-    q_opt = minimize(rf, bounds=(-3.0, 3.0), tol=1e-10, options={"gtol": 1e-10, "disp": True, "maxiter": 20})
+    rf = ReducedFunctional(J, control, eval_cb_pre=eval_cb)
+    q_opt = minimize(rf, bounds=(-3.0, 3.0), tol=1e-10, options={"gtol": 1e-10, "disp": True, "maxiter": max_iter})
 
     # Recompute the state variable with the optimal control
     q.assign(q_opt)
@@ -99,8 +106,12 @@ def Inverse_potential(noise_level, lamb):
     print("h(min):           %e." % mesh.hmin())
     print("Error in state:   %e." % state_error)
     print("Error in control: %e." % control_error)
-    save_result(u, q, lamb, noise_level, path="./one-peak/")
-    return
+    save_result(u, q, lamb, noise_level, path="./one_peak/")
+    save_err_q(err_q_history, lamb, noise_level, path="./one_peak/")
+
+    tape = get_working_tape()
+    tape.clear_tape()
+    return J, state_error, control_error
 
 if __name__ == "__main__":
     lamb_list = [1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 0.0]
@@ -108,4 +119,4 @@ if __name__ == "__main__":
     for lamb in lamb_list:
         for delta in delta_list:
             print(f"Noise level: {delta}, Lambda: {lamb}")
-            Inverse_potential(delta, lamb)
+            _, _, err_q = Inverse_potential(delta, lamb, max_iter=20)

@@ -1,18 +1,18 @@
+import torch
 from torch import Tensor, mean, sqrt
-
 from .problem import elliptic, neumann
-from .utils import H2norm, ms, mse
+from .utils import H2norm, L2norm, ms, mse
 
 
-def get_loss(alpha: float, lamb: float):
-    return TikPINNLoss(alpha, lamb)
+def get_loss(alpha: float, lamb: float, regularization: str = 'H2') -> object:
+    return TikPINNLoss(alpha, lamb, regularization)
 
 
 class TikPINNLoss(object):
-    def __init__(self, alpha: float, lamb: float, d: int = 2) -> None:
+    def __init__(self, alpha: float, lamb: float, regularization: str) -> None:
         self.alpha = alpha
         self.lamb = lamb
-        self.d = d
+        self.regularization = regularization
 
     @staticmethod
     def _measurement_loss(u, sample: Tensor) -> Tensor:
@@ -30,11 +30,15 @@ class TikPINNLoss(object):
         loss_neumann = mse(g_val, neumann(u, bdy, normal))
         return loss_int + loss_neumann
 
-    @staticmethod
-    def _regularization_loss(q, sample: Tensor) -> Tensor:
+    def _regularization_loss(self, q, sample: Tensor) -> Tensor:
         ind = data_ind(sample.shape[1])
         interior = sample[:, ind['int']]
-        return mean(H2norm(q, interior))
+        if self.regularization == 'H2':
+            return mean(H2norm(q, interior))
+        elif self.regularization == 'L2':
+            return mean(L2norm(q, interior))
+        else:
+            return torch.tensor([0.0], device=sample.device)  # Default case, no regularization
 
     def __call__(self, q, u, sample: Tensor) -> Tensor:
         return (

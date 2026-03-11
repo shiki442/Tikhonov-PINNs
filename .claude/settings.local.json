@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python \"TikPINN\\\\GenerateData\\\\generate_data_1d.py\")"
+    ]
+  }
+}

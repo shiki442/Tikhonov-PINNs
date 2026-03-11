@@ -5,14 +5,14 @@ import torch.nn as nn
 from torch import Tensor
 
 
-class ReLU2(nn.Module):
-    def forward(self, x):
-        return torch.pow(torch.relu(x), 1.5)
+# class ReLU2(nn.Module):
+#     def forward(self, x):
+#         return torch.pow(torch.relu(x), 1.5)
 
 
 def get_network(**kwargs) -> nn.Module:
     activation = nn.Tanh()
-    return MLP(in_features=2, out_features=1, activation=activation, **kwargs)
+    return MLP(out_features=1, activation=activation, **kwargs)
 
 
 @torch.no_grad()
@@ -34,6 +34,7 @@ class MLP(nn.Module):
         self.in_layer = nn.Linear(in_features, width_list[0])
         self.hiddens = nn.ModuleList([nn.Linear(width_list[i], width_list[i + 1]) for i in range(len(width_list) - 1)])
         self.out_layer = nn.Linear(width_list[-1], out_features)
+        # self.hidden_last = nn.Linear(width_list[-1], width_list[-1])
         self.box = box
         self.act = activation
         self.apply(_init_weights_bias)
