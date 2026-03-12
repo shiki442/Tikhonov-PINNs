@@ -5,11 +5,6 @@ import torch.nn as nn
 from torch import Tensor
 
 
-# class ReLU2(nn.Module):
-#     def forward(self, x):
-#         return torch.pow(torch.relu(x), 1.5)
-
-
 def get_network(**kwargs) -> nn.Module:
     activation = nn.Tanh()
     return MLP(out_features=1, activation=activation, **kwargs)

@@ -70,7 +70,7 @@ def check_config(config: dict) -> dict:
 
 
 def q_dagger(x, idx=None):
-    if idx == "04":
+    if idx == "01":
         return torch.exp(x)
     elif idx == "06":
         return (1.0 + x) * (torch.exp(x))
@@ -79,7 +79,7 @@ def q_dagger(x, idx=None):
 
 
 def u_dagger(x, idx=None):
-    if idx == "04":
+    if idx == "01":
         return 1.0 + torch.sin(torch.pi * x)
     elif idx == "06":
         return 1.0 + torch.sin(torch.pi * x)

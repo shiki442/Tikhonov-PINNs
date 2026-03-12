@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor, mean, sqrt
+from typing import Tuple
 from .problem import elliptic, neumann
 from .utils import H2norm, L2norm, ms, mse
 
@@ -15,66 +16,125 @@ class TikPINNLoss(object):
         self.regularization = regularization
 
     @staticmethod
-    def _measurement_loss(u, sample: Tensor) -> Tensor:
-        ind = data_ind(sample.shape[1])
-        interior, m_int = sample[:, ind['int']], sample[:, ind['m_int']]
-        bdy, m_bdy = sample[:, ind['bdy']], sample[:, ind['m_bdy']]
+    def _measurement_loss(u, samples: Tuple[Tensor, Tensor]) -> Tensor:
+        """
+        Compute measurement loss.
+
+        Args:
+            u: The u_net model
+            samples: Tuple of (int_sample, bdy_sample)
+                - int_sample: [int_x, m_int, f_val, u_dagger, q_dagger]
+                - bdy_sample: [bdy_x, normal, m_bdy, g_val]
+        """
+        int_sample, bdy_sample = samples
+        # int_sample columns: [int_x1..xd, m_int, f_val, u_dagger, q_dagger]
+        # bdy_sample columns: [bdy_x1..xd, normal_x1..xd, m_bdy, g_val]
+        d = (int_sample.shape[1] - 4)  # dimension = total_cols - 4 scalar cols
+
+        interior = int_sample[:, :d]
+        m_int = int_sample[:, d:d+1]
+
+        bdy = bdy_sample[:, :d]
+        m_bdy = bdy_sample[:, 2*d:2*d+1]
+
         return mse(m_int, u(interior)) + mse(m_bdy, u(bdy))
 
     @staticmethod
-    def _pinns_loss(q, u, sample: Tensor) -> Tensor:
-        ind = data_ind(sample.shape[1])
-        interior, f_val = sample[:, ind['int']], sample[:, ind['f_val']]
+    def _pinns_loss(q, u, samples: Tuple[Tensor, Tensor]) -> Tensor:
+        """
+        Compute PINNs loss (PDE residual + boundary condition).
+
+        Args:
+            q: The q_net model
+            u: The u_net model
+            samples: Tuple of (int_sample, bdy_sample)
+        """
+        int_sample, bdy_sample = samples
+        d = (int_sample.shape[1] - 4)
+
+        # Interior: compute PDE residual
+        interior = int_sample[:, :d]
+        f_val = int_sample[:, d+1:d+2]
         loss_int = ms(elliptic(q, u, interior, f_val))
-        bdy, normal, g_val = sample[:, ind['bdy']], sample[:, ind['normal']], sample[:, ind['g_val']]
+
+        # Boundary: compute Neumann condition
+        bdy = bdy_sample[:, :d]
+        normal = bdy_sample[:, d:2*d]
+        g_val = bdy_sample[:, 2*d+1:2*d+2]
         loss_neumann = mse(g_val, neumann(u, bdy, normal))
+
         return loss_int + loss_neumann
 
-    def _regularization_loss(self, q, sample: Tensor) -> Tensor:
-        ind = data_ind(sample.shape[1])
-        interior = sample[:, ind['int']]
+    def _regularization_loss(self, q, samples: Tuple[Tensor, Tensor]) -> Tensor:
+        """
+        Compute Tikhonov regularization loss on q.
+
+        Args:
+            q: The q_net model
+            samples: Tuple of (int_sample, bdy_sample)
+        """
+        int_sample, _ = samples
+        d = (int_sample.shape[1] - 4)
+        interior = int_sample[:, :d]
+
         if self.regularization == 'H2':
             return mean(H2norm(q, interior))
         elif self.regularization == 'L2':
             return mean(L2norm(q, interior))
         else:
-            return torch.tensor([0.0], device=sample.device)  # Default case, no regularization
+            return torch.tensor([0.0], device=int_sample.device)
 
-    def __call__(self, q, u, sample: Tensor) -> Tensor:
+    def __call__(self, q, u, samples: Tuple[Tensor, Tensor]) -> Tensor:
+        """
+        Compute total TikPINN loss.
+
+        Args:
+            q: The q_net model
+            u: The u_net model
+            samples: Tuple of (int_sample, bdy_sample)
+        """
         return (
-            self._measurement_loss(u, sample)
-            + self.alpha * self._pinns_loss(q, u, sample)
-            + self.lamb * self._regularization_loss(q, sample)
+            self._measurement_loss(u, samples)
+            + self.alpha * self._pinns_loss(q, u, samples)
+            + self.lamb * self._regularization_loss(q, samples)
         )
 
-    def measurement(self, u, sample: Tensor) -> Tensor:
-        return self._measurement_loss(u, sample)
+    def measurement(self, u, samples: Tuple[Tensor, Tensor]) -> Tensor:
+        """
+        Compute measurement loss only (for pre-training u_net).
+
+        Args:
+            u: The u_net model
+            samples: Tuple of (int_sample, bdy_sample)
+        """
+        return self._measurement_loss(u, samples)
 
 
-def relative_error_u(u, sample: Tensor) -> Tensor:
-    ind = data_ind(sample.shape[1])
-    interior = sample[:, ind['int']]
-    u_dagger = sample[:, ind['u_dagger']]
+def relative_error_u(u, samples: Tuple[Tensor, Tensor]) -> Tensor:
+    """
+    Compute relative error for u.
+
+    Args:
+        u: The u_net model
+        samples: Tuple of (int_sample, bdy_sample)
+    """
+    int_sample, _ = samples
+    d = (int_sample.shape[1] - 4)
+    interior = int_sample[:, :d]
+    u_dagger = int_sample[:, d+2:d+3]
     return sqrt(mse(u(interior), u_dagger) / ms(u_dagger))
 
 
-def relative_error_q(q, sample: Tensor) -> Tensor:
-    ind = data_ind(sample.shape[1])
-    interior = sample[:, ind['int']]
-    q_dagger = sample[:, ind['q_dagger']]
+def relative_error_q(q, samples: Tuple[Tensor, Tensor]) -> Tensor:
+    """
+    Compute relative error for q.
+
+    Args:
+        q: The q_net model
+        samples: Tuple of (int_sample, bdy_sample)
+    """
+    int_sample, _ = samples
+    d = (int_sample.shape[1] - 4)
+    interior = int_sample[:, :d]
+    q_dagger = int_sample[:, d+3:d+4]
     return sqrt(mse(q(interior), q_dagger) / ms(q_dagger))
-
-
-def data_ind(len_sample: int) -> dict:
-    d = (len_sample - 6) // 3
-    ind = dict()
-    ind['int'] = [i for i in range(d)]
-    ind['bdy'] = [i + d for i in range(d)]
-    ind['normal'] = [i + 2 * d for i in range(d)]
-    ind['m_int'] = [3 * d]
-    ind['m_bdy'] = [3 * d + 1]
-    ind['f_val'] = [3 * d + 2]
-    ind['g_val'] = [3 * d + 3]
-    ind['u_dagger'] = [3 * d + 4]
-    ind['q_dagger'] = [3 * d + 5]
-    return ind

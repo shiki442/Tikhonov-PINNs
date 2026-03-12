@@ -40,11 +40,11 @@ def _save_results(device, epoch, q_net, u_net, results_path):
 def _pretrain_u_epoch(device, dataloader, u_net, loss_fn, optimizer) -> None:
     """Train one epoch"""
     u_net.train()
-    for _, sample in enumerate(dataloader):
-        # load data to CUDA
-        sample = sample[0].to(device)
+    for _, samples in enumerate(dataloader):
+        # load data to CUDA - samples is now (int_sample, bdy_sample) tuple
+        samples = (samples[0].to(device), samples[1].to(device))
         # compute loss
-        loss = loss_fn.measurement(u_net, sample)
+        loss = loss_fn.measurement(u_net, samples)
         # backward and optimization
         optimizer.zero_grad()
         loss.backward()
@@ -60,14 +60,14 @@ def _pretrain_validate_u_epoch(device, dataloader, u_net, loss_fn, idx) -> tuple
     x = _generate_uniform_mesh(500, d).to(device)
     err_u = relative_error(u_net(x), u_dagger(x, idx))
 
-    for _, sample in enumerate(dataloader):
-        # load data to CUDA
-        sample = sample[0].to(device)
+    for _, samples in enumerate(dataloader):
+        # load data to CUDA - samples is now (int_sample, bdy_sample) tuple
+        samples = (samples[0].to(device), samples[1].to(device))
         # forward and compute loss
-        loss = loss_fn.measurement(u_net, sample)
+        loss = loss_fn.measurement(u_net, samples)
         # compute step loss and accuracy
-        dataset_sizes += sample.size(0)
-        batch_loss += loss.item() * sample.size(0)
+        dataset_sizes += samples[0].size(0)
+        batch_loss += loss.item() * samples[0].size(0)
     # compute epoch loss and relative error
     epoch_loss = batch_loss / dataset_sizes
     return (epoch_loss, err_u.item())
@@ -77,18 +77,19 @@ def _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler
     """Train one epoch"""
     q_net.train()
     u_net.train()
-    for _, sample in enumerate(dataloader):
+    for _, samples in enumerate(dataloader):
+        # samples is now (int_sample, bdy_sample) tuple
 
         def closure():
             # compute loss
-            loss = loss_fn(q_net, u_net, sample)
+            loss = loss_fn(q_net, u_net, samples)
             # backward and optimization
             optimizer.zero_grad()
             loss.backward()
             return loss
 
-        # load data to CUDA
-        sample = sample[0].to(device)
+        # load data to CUDA - samples is now (int_sample, bdy_sample) tuple
+        samples = (samples[0].to(device), samples[1].to(device))
         optimizer.step(closure)
 
     if scheduler is not None:
@@ -106,15 +107,15 @@ def _validate_epoch(device, dataloader, q_net, u_net, loss_fn, idx) -> tuple:
     err_u = relative_error(u_net(x), u_dagger(x, idx))
     err_q = relative_error(q_net(x), q_dagger(x, idx))
 
-    for _, sample in enumerate(dataloader):
-        # load data to CUDA
-        sample = sample[0].to(device)
+    for _, samples in enumerate(dataloader):
+        # load data to CUDA - samples is now (int_sample, bdy_sample) tuple
+        samples = (samples[0].to(device), samples[1].to(device))
         # forward and compute loss
-        loss = loss_fn(q_net, u_net, sample)
+        loss = loss_fn(q_net, u_net, samples)
 
         # compute step loss and accuracy
-        dataset_sizes += sample.size(0)
-        batch_loss += loss.item() * sample.size(0)
+        dataset_sizes += samples[0].size(0)
+        batch_loss += loss.item() * samples[0].size(0)
 
     # compute epoch loss and relative error
     epoch_loss = batch_loss / dataset_sizes
