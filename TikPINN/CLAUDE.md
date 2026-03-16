@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TikPINN (Tikhonov Physics-Informed Neural Networks) - A PyTorch implementation for solving 1D inverse problems using PINNs with Tikhonov regularization.
+TikPINN (Tikhov Physics-Informed Neural Networks) - A PyTorch implementation for solving 1D/nD inverse problems using PINNs with Tikhonov regularization. Supports single-GPU and multi-GPU DDP training.
 
 ## Quick Start
 
@@ -23,69 +23,121 @@ python main.py --config_path config/params.yaml
 - Entry point supporting single GPU and multi-GPU DDP training
 - Loads config from YAML, spawns processes via `mp.spawn()` for distributed training
 - Two-network architecture: `q_net` (parameter estimation) and `u_net` (solution)
+- TensorBoard logging support
+- Checkpoint save/load for resuming training
 
 ### Model Components (`model/`)
-- **`nn.py`**: MLP with residual connections, Tanh activation, sigmoid box projection for bounded outputs
+- **`nn.py`**: `MLP` with residual connections, Tanh activation, sigmoid box projection for bounded outputs
 - **`loss.py`**: `TikPINNLoss` = measurement_loss + α×PINNS_loss + λ×regularization_loss (L2/H2)
-- **`data.py`**: DataLoader with .pt/.txt format support, distributed sampler for DDP
+- **`data.py`**: `TikDataset` with .pt/.txt format support, `DistributedSampler` for DDP
 - **`optim.py`**: Adam/AdamW/LBFGS optimizers, warmup + cosine annealing scheduler
-- **`train.py`**: Two-phase training - pretrain u_net, then joint training (Adam → LBFGS)
-- **`utils.py`**: Config validation, automatic differentiation (grad/laplace), H2/L2 norms, seed setting
+- **`train.py`**: Three-phase training - pretrain u_net → Adam joint → LBFGS fine-tuning
+- **`utils.py`**: Config validation, auto-diff (grad/laplace), H2/L2 norms, seed setting, version management
+- **`problem.py`**: PDE operators (`elliptic`, `neumann`) and evaluation helpers
 
 ### Data Generation (`GenerateData/`)
-- **`problem_base.py`**: Abstract `Problem1D` base class defining q_dagger, u_dagger, and derivatives
-- **`generate_data_1d.py`**: Generates interior/boundary points with configurable noise
-- **`problems/`**: Concrete problem definitions (e.g., `example06.py`)
+- **`generate_data.py`**: Unified 1D/nD data generation with noise
+- **`problems/problem_base_1d.py`**: Abstract `Problem1D` base class
+- **`problems/problem_base_nd.py`**: Abstract `ProblemND` base class for nD problems
+- **`problems/`**: Concrete implementations (`example01.py`, `example02.py`, `example06.py`, `sine_product_nd.py`)
 
 ### Configuration (`config/params.py`)
-- Helper scripts to batch-generate YAML configs for hyperparameter sweeps (noise, regularization, network width, seeds)
+- Helper scripts to batch-generate YAML configs for hyperparameter sweeps (noise, λ, width, seeds, n_samples)
 
 ## Data Format
 
-Training data stored as `.pt` files with keys:
-- `int_points`, `bdy_points`, `normal_vec`: Geometry (n, 1)
-- `m_int`, `m_bdy`: Noisy measurements
-- `f_val`: Source term (-Δu + q*u)
-- `g_val`: Boundary flux (∇u·n)
-- `u_dagger`, `q_dagger`: Ground truth
+Training data stored as `.pt` files:
+```python
+{
+    'int_points': (n_int, dim),      # Interior coordinates
+    'bdy_points': (n_bdy, dim),      # Boundary coordinates
+    'normal_vec': (n_bdy, dim),      # Outward normals
+    'm_int': (n_int, 1),             # Noisy interior measurements
+    'm_bdy': (n_bdy, 1),             # Noisy boundary measurements
+    'f_val': (n_int, 1),             # Source term (-Δu + q*u)
+    'g_val': (n_bdy, 1),             # Boundary flux (∇u·n)
+    'u_dagger': (n_int, 1),          # Ground truth solution
+    'q_dagger': (n_int, 1),          # Ground truth parameter
+}
+```
+
+`TikDataset` pairs interior/boundary samples with independent sampling via modulo indexing.
 
 ## Config Structure (`params.yaml`)
 
 ```yaml
 task:
-  idx: "06"        # Problem ID
-  noise_str: "10"  # Noise level suffix
-  dim: 1
+  idx: "06"        # Problem ID (01=2D, 02=2D, 06=1D)
+  noise_str: "01"  # Noise level (01=1%, 10=10%)
+  dim: 2           # Problem dimension
+
 dataloader_params:
-  batch_size: 256
+  data_path: './data'
+  batch_size: 2500
   n_samples: 50000
+
 q_net_params/u_net_params:
-  width_list: [32, 32]
-  box: [lower, upper]  # Output bounds
+  in_features: <auto-set>
+  width_list: [64, 64]
+  box: [lower, upper]  # Output bounds (use [] for unbounded)
+
 loss_params:
-  alpha: 1.0       # PINNS weight
-  lamb: 1e-8       # Tikhonov regularization
+  alpha: 1.0         # PINNS loss weight
+  lamb: 1.0e-7       # Tikhonov regularization weight
   regularization: "H2"  # or "L2", "0"
+
+pretrain_optim_params:
+  pretrain_u_lr: 1.0e-4
+  pretrain_u_reg: 0.0
+
+optim_params_adam:
+  q_lr: 1.0e-4
+  u_lr: 1.0e-4
+  weight_decay: 0.0
+
+optim_params_lbfgs:
+  q_lr: 1.0e-4
+  u_lr: 1.0e-4
+  line_search_fn: "strong_wolfe"
+  max_iter: 20
+
+scheduler_params:
+  warmup_steps: 100
+  total_steps: 10000  # Adam_epochs + LBFGS_epochs
+
 train_params:
-  pretrain_epochs_u: 1000
-  num_epochs: [5000, 5000]  # [Adam_epochs, LBFGS_epochs]
+  pretrain_epochs_u: 100
+  num_epochs: [1000, 100]  # [Adam_epochs, LBFGS_epochs]
+  logs_path: './logs'
+
+checkpoint_params:
+  save_top_k: 3
+  save_last: true
+  every_n_epochs: 500
+
+seed: 42
 ```
 
 ## Key Patterns
 
-- **Data layout**: Sample tensor columns = [int_point, bdy_point, normal, m_int, m_bdy, f_val, g_val, u_dagger, q_dagger]
-- **Two-phase optimization**: Adam (warmup+cosine) → LBFGS for fine-tuning
-- **DDP training**: Uses NCCL backend, MASTER_ADDR=localhost:64060
-- **Results**: Saved to `output/{problem_name}/result_{width}_{seed}/`
+- **Training phases**:
+  1. Pretrain u_net (measurement loss only)
+  2. Joint training with Adam (warmup + cosine annealing)
+  3. Fine-tuning with LBFGS
+
+- **DDP training**: NCCL backend, `MASTER_ADDR=127.0.0.1:64060`
+
+- **Results versioning**: Auto-incrementing version folders (`logs/ex{idx}/v1/`, `v2/`, ...)
+
+- **TensorBoard**: Logs to `logs/ex{idx}/v{N}/` with scalars for loss and relative errors
+
+- **Checkpointing**: Supports resume from `checkpoint.pt` with optimizer/scheduler state
 
 ## Common Operations
 
 ```bash
-# Generate configs for noise sweep (params.py)
-python config/params.py  # Edit bash_cfg_noise() for desired ranges
-
 # Run with specific config
-python main.py --config_path config/params_08_10.yaml
+python main.py --config_path config/params.yaml
 ```
 
 ## Working Constraints

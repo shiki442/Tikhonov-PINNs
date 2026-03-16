@@ -5,6 +5,11 @@ This package contains concrete implementations of Problem1D and ProblemND base c
 for different example problems.
 """
 
+from .example01 import Example01Problem
+from .example02 import Example02Problem
+from .example06 import Example06Problem
+from .sine_product_nd import SineProductProblem
+
 __all__ = [
     'Example06Problem',      # 1D
     'Example01Problem',      # 2D

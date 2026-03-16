@@ -5,29 +5,68 @@ from torch import Tensor, autograd
 import numpy as np
 import os
 import warnings
+import yaml
 
 
-def check_config(config: dict) -> dict:
+def save_config(config: dict, path: str, filename: str = 'config.yaml'):
+    """
+    Save configuration to YAML file.
+
+    Args:
+        config: Configuration dictionary
+        path: Directory path to save the config
+        filename: Output filename (default: 'config.yaml')
+    """
+    os.makedirs(path, exist_ok=True)
+    output_path = os.path.join(path, filename)
+    with open(output_path, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+    print(f"Config saved to: {output_path}")
+
+
+def get_next_version(path: str) -> str:
+    """
+    Get the next available version folder name (v1, v2, v3, ...).
+
+    Args:
+        path: Base path to check for existing versions
+
+    Returns:
+        Next version folder name (e.g., 'v1', 'v2', etc.)
+    """
+    existing_versions = []
+    if os.path.exists(path):
+        for name in os.listdir(path):
+            if name.startswith('v') and os.path.isdir(os.path.join(path, name)):
+                try:
+                    version_num = int(name[1:])
+                    existing_versions.append(version_num)
+                except ValueError:
+                    pass
+
+    if existing_versions:
+        next_version = max(existing_versions) + 1
+    else:
+        next_version = 1
+
+    return f'v{next_version}'
+
+
+def check_config(config: dict, config_file_path: str = None) -> dict:
+    """
+    Validate config and set up results path with version management.
+
+    Args:
+        config: Configuration dictionary
+        config_file_path: Path to the original config YAML file (optional)
+
+    Returns:
+        Updated configuration dictionary with results_path set
+    """
     # check and create results path
     idx = config['task']['idx']
-    noise_str = config['task']['noise_str']
-    path = config["train_params"]["results_path"]
-    if idx == "01":
-        path = os.path.join(path, "one_peak")
-    elif idx == "02":
-        path = os.path.join(path, "non_smooth")
-    elif idx == "03":
-        path = os.path.join(path, "discontinuous")
-    elif idx == "04":
-        path = os.path.join(path, "one_peak_1d_w")
-    elif idx == "05":
-        path = os.path.join(path, "one_peak_1d_w")
-    elif idx == "06":
-        path = os.path.join(path, "two_peaks_1d")
-    else:
-        raise ValueError(f"Unknown task idx: {idx}")
-
-    config["train_params"]["idx"] = config['task']['idx']
+    base_path = config["train_params"]["logs_path"]
+    base_path = os.path.join(base_path, f"ex{idx}/")
 
     if config["dataloader_params"]["n_samples"] < config["dataloader_params"]["batch_size"]:
         warnings.warn(
@@ -35,29 +74,28 @@ def check_config(config: dict) -> dict:
         )
         config["dataloader_params"]["batch_size"] = config["dataloader_params"]["n_samples"]
 
-    lamb = config["loss_params"]["lamb"]
-    # 关于lamb和噪声
-    # if lamb == 0.0:
-    #     path = os.path.join(path, f"result_00_{noise_str}")
-    # else:
-    #     lamb = int(-np.log10(lamb))
-    #     path = os.path.join(path, f"result_0{lamb}_{noise_str}")
-    # 关于宽度
-    seed = config["seed"]
-    width = config["q_net_params"]["width_list"][0]
-    path = os.path.join(path, f"result_{width}_{seed}")
-    # 关于样本量和种子
-    # seed = config["seed"]
-    # n = config["dataloader_params"]["n_samples"]
-    # path = os.path.join(path, f"result_{n}_{seed}")
-    # 关于正则化和种子
-    # lamb = config["loss_params"]["lamb"]
-    # reg = config["loss_params"]["regularization"]
-    # lamb = int(-np.log10(lamb)) if lamb > 0 else 0
-    # path = os.path.join(path, f"result_{reg}_0{lamb}")
+    # Create base path if not exists
+    os.makedirs(base_path, exist_ok=True)
 
+    # Get next version folder
+    version = get_next_version(base_path)
+    path = os.path.join(base_path, version)
     os.makedirs(path, exist_ok=True)
+
     config["train_params"]["results_path"] = path
+    config["train_params"]["version"] = version
+
+    # Save config file to results folder
+    if config_file_path is not None and os.path.exists(config_file_path):
+        import shutil
+        config_save_path = os.path.join(path, 'config.yaml')
+        shutil.copy(config_file_path, config_save_path)
+        print(f"Config copied to: {config_save_path}")
+    else:
+        # Save config directly if no source file provided
+        save_config(config, path)
+
+    print(f"Results will be saved to: {path}")
 
     # check in_features
     config['q_net_params']['in_features'] = config['task']['dim']

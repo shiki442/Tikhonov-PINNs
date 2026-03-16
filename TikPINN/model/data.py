@@ -62,7 +62,7 @@ def get_dataloader(data_path, batch_size, idx, noise_str, n_samples):
     else:
         raise FileNotFoundError(f"Data file not found: {pt_path} or {txt_path}")
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=tik_collate_fn)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=tik_collate_fn)
     return dataloader
 
 
@@ -83,7 +83,7 @@ def get_ddp_dataloader(data_path, batch_size, idx, noise_str, n_samples, world_s
         raise FileNotFoundError(f"Data file not found: {pt_path} or {txt_path}")
 
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=0, collate_fn=tik_collate_fn)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, sampler=sampler, num_workers=0, collate_fn=tik_collate_fn)
     return dataloader
 
 
