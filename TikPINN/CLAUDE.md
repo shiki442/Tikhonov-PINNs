@@ -78,7 +78,8 @@ dataloader_params:
 
 q_net_params/u_net_params:
   in_features: <auto-set>
-  width_list: [64, 64]
+  width: 64           # Hidden layer width
+  depth: 2            # Number of hidden layers
   box: [lower, upper]  # Output bounds (use [] for unbounded)
 
 loss_params:
@@ -109,6 +110,7 @@ train_params:
   pretrain_epochs_u: 100
   num_epochs: [1000, 100]  # [Adam_epochs, LBFGS_epochs]
   logs_path: './logs'
+  heatmap_every_n_epochs: 100  # Log heatmaps every N epochs (0 to disable)
 
 checkpoint_params:
   save_top_k: 3
@@ -137,8 +139,36 @@ seed: 42
 
 ```bash
 # Run with specific config
-python main.py --config_path config/params.yaml
+python main.py --config_path config/params.yml
 ```
+
+### Hyperparameter Tuning with Optuna
+
+```bash
+# Basic usage (50 trials)
+python tune_hyperparams.py --n_trials 50 --config_path config/params.yml
+
+# Parallel tuning (4 parallel jobs)
+python tune_hyperparams.py --n_trials 50 --n_jobs 4 --config_path config/params.yml
+
+# Save/load study to database (resume later)
+python tune_hyperparams.py --n_trials 50 --storage sqlite:///study.db --study_name my_study
+```
+
+**Tunable parameters:**
+| Parameter | Range |
+|-----------|-------|
+| `q_width` | 32-256 (step 32) |
+| `q_depth` | 1-4 |
+| `u_width` | 32-256 (step 32) |
+| `u_depth` | 1-4 |
+| `alpha` | 0.1-10.0 (log scale) |
+| `lamb` | 1e-10 - 1e-4 (log scale) |
+| `q_lr` | 1e-5 - 1e-2 (log scale) |
+| `u_lr` | 1e-5 - 1e-2 (log scale) |
+| `batch_size` | [1000, 2500, 5000, 10000] |
+
+Best config saved to `config/params_best.yml` after tuning.
 
 ## Working Constraints
 

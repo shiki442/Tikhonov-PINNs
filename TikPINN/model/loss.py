@@ -29,13 +29,13 @@ class TikPINNLoss(object):
         int_sample, bdy_sample = samples
         # int_sample columns: [int_x1..xd, m_int, f_val, u_dagger, q_dagger]
         # bdy_sample columns: [bdy_x1..xd, normal_x1..xd, m_bdy, g_val]
-        d = (int_sample.shape[1] - 4)  # dimension = total_cols - 4 scalar cols
+        d = int_sample.shape[1] - 4  # dimension = total_cols - 4 scalar cols
 
         interior = int_sample[:, :d]
-        m_int = int_sample[:, d:d+1]
+        m_int = int_sample[:, d : d + 1]
 
         bdy = bdy_sample[:, :d]
-        m_bdy = bdy_sample[:, 2*d:2*d+1]
+        m_bdy = bdy_sample[:, 2 * d : 2 * d + 1]
 
         return mse(m_int, u(interior)) + mse(m_bdy, u(bdy))
 
@@ -50,17 +50,17 @@ class TikPINNLoss(object):
             samples: Tuple of (int_sample, bdy_sample)
         """
         int_sample, bdy_sample = samples
-        d = (int_sample.shape[1] - 4)
+        d = int_sample.shape[1] - 4
 
         # Interior: compute PDE residual
         interior = int_sample[:, :d]
-        f_val = int_sample[:, d+1:d+2]
+        f_val = int_sample[:, d + 1 : d + 2]
         loss_int = ms(elliptic(q, u, interior, f_val))
 
         # Boundary: compute Neumann condition
         bdy = bdy_sample[:, :d]
-        normal = bdy_sample[:, d:2*d]
-        g_val = bdy_sample[:, 2*d+1:2*d+2]
+        normal = bdy_sample[:, d : 2 * d]
+        g_val = bdy_sample[:, 2 * d + 1 : 2 * d + 2]
         loss_neumann = mse(g_val, neumann(u, bdy, normal))
 
         return loss_int + loss_neumann
@@ -74,7 +74,7 @@ class TikPINNLoss(object):
             samples: Tuple of (int_sample, bdy_sample)
         """
         int_sample, _ = samples
-        d = (int_sample.shape[1] - 4)
+        d = int_sample.shape[1] - 4
         interior = int_sample[:, :d]
 
         if self.regularization == 'H2':
@@ -93,11 +93,41 @@ class TikPINNLoss(object):
             u: The u_net model
             samples: Tuple of (int_sample, bdy_sample)
         """
+        measurement_loss = self._measurement_loss(u, samples)
+        pinns_loss = self._pinns_loss(q, u, samples)
+        reg_loss = self._regularization_loss(q, samples)
         return (
-            self._measurement_loss(u, samples)
-            + self.alpha * self._pinns_loss(q, u, samples)
-            + self.lamb * self._regularization_loss(q, samples)
+            pinns_loss
+            + self.alpha * measurement_loss
+            + self.lamb * reg_loss
         )
+
+    def get_loss_components(self, q, u, samples: Tuple[Tensor, Tensor]) -> dict:
+        """
+        Compute and return all loss components separately.
+
+        Args:
+            q: The q_net model
+            u: The u_net model
+            samples: Tuple of (int_sample, bdy_sample)
+
+        Returns:
+            Dictionary with 'total', 'measurement', 'pinns', 'regularization' losses
+        """
+        measurement_loss = self._measurement_loss(u, samples)
+        pinns_loss = self._pinns_loss(q, u, samples)
+        reg_loss = self._regularization_loss(q, samples)
+        total_loss = (
+            pinns_loss
+            + self.alpha * measurement_loss
+            + self.lamb * reg_loss
+        )
+        return {
+            'total': total_loss,
+            'measurement': measurement_loss.item(),
+            'pinns': pinns_loss.item(),
+            'regularization': reg_loss.item(),
+        }
 
     def measurement(self, u, samples: Tuple[Tensor, Tensor]) -> Tensor:
         """
@@ -119,9 +149,9 @@ def relative_error_u(u, samples: Tuple[Tensor, Tensor]) -> Tensor:
         samples: Tuple of (int_sample, bdy_sample)
     """
     int_sample, _ = samples
-    d = (int_sample.shape[1] - 4)
+    d = int_sample.shape[1] - 4
     interior = int_sample[:, :d]
-    u_dagger = int_sample[:, d+2:d+3]
+    u_dagger = int_sample[:, d + 2 : d + 3]
     return sqrt(mse(u(interior), u_dagger) / ms(u_dagger))
 
 
@@ -134,7 +164,7 @@ def relative_error_q(q, samples: Tuple[Tensor, Tensor]) -> Tensor:
         samples: Tuple of (int_sample, bdy_sample)
     """
     int_sample, _ = samples
-    d = (int_sample.shape[1] - 4)
+    d = int_sample.shape[1] - 4
     interior = int_sample[:, :d]
-    q_dagger = int_sample[:, d+3:d+4]
+    q_dagger = int_sample[:, d + 3 : d + 4]
     return sqrt(mse(q(interior), q_dagger) / ms(q_dagger))

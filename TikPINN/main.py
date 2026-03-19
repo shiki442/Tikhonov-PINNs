@@ -25,13 +25,20 @@ def get_problem_class(idx):
     """Get problem class by task index."""
     if idx == "01":
         from GenerateData.problems import Example01Problem
+
         return Example01Problem
     elif idx == "02":
         from GenerateData.problems import Example02Problem
+
         return Example02Problem
     elif idx == "06":
         from GenerateData.problems import Example06Problem
+
         return Example06Problem
+    elif idx == "03":
+        from GenerateData.problems import Example03Problem
+
+        return Example03Problem
     else:
         raise ValueError(f"Unknown task idx: {idx}")
 
@@ -77,8 +84,8 @@ def main(rank, world_size, config, config_file_path=None):
     optimizer_adam = get_optimizer(q_net, u_net, **config["optim_params_adam"])
     optimizer_lbfgs = get_optimizer(q_net, u_net, **config["optim_params_lbfgs"])
     scheduler_adam = get_scheduler(optimizer_adam, **config["scheduler_params"])
-    optimizers = [optimizer_lbfgs, optimizer_adam]
-    schedulers = [None, None]  # No scheduler for LBFGS
+    optimizers = [optimizer_adam, optimizer_lbfgs]
+    schedulers = [scheduler_adam, None]  # Only Adam has scheduler, LBFGS doesn't
 
     # Get checkpoint path from config if exists
     results_path = config["train_params"]["results_path"]
@@ -118,6 +125,7 @@ def main(rank, world_size, config, config_file_path=None):
         checkpoint_path=checkpoint_path,
         ckpt_every_n_epochs=ckpt_every_n_epochs,
         ckpt_save_last=ckpt_save_last,
+        heatmap_every_n_epochs=config.get("heatmap_every_n_epochs", 100),
     )
 
     # Close TensorBoard writer
