@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import torch
@@ -450,7 +451,9 @@ def train(
         scheduler = schedulers[0] if epoch < num_epochs[0] else schedulers[1]
         start = time.time()
         _train_epoch(device, dataloader, q_net, u_net, loss_fn, optimizer, scheduler)
-        loss_val, q_err, u_err = _validate_epoch(device, dataloader, q_net, u_net, loss_fn, writer, pretrain_epochs_u + epoch, problem, eval_points)
+        loss_val, q_err, u_err = _validate_epoch(
+            device, dataloader, q_net, u_net, loss_fn, writer, pretrain_epochs_u + epoch, problem, eval_points
+        )
         if device == 0 or str(device) in ['cpu', 'cuda', 'cuda:0']:
             print(f"== Epochs: [{epoch + 1:>5d}/{total_epochs:>5d}] ==", end=" ")
             print(f"spend time: [{(time.time() - start):6.2f} sec] ==", end=" ")
@@ -464,7 +467,16 @@ def train(
 
         # Save checkpoint every N epochs
         if ckpt_every_n_epochs > 0 and (epoch + 1) % ckpt_every_n_epochs == 0:
-            _save_checkpoint(device, pretrain_epochs_u + epoch + 1, q_net, u_net, optimizer, scheduler, results_path, f'checkpoint_{pretrain_epochs_u + epoch + 1}.pt')
+            _save_checkpoint(
+                device,
+                pretrain_epochs_u + epoch + 1,
+                q_net,
+                u_net,
+                optimizer,
+                scheduler,
+                results_path,
+                f'checkpoint_{pretrain_epochs_u + epoch + 1}.pt',
+            )
 
     # Log final heatmaps at the end of training
     if writer is not None and (device == 0 or str(device) in ['cpu', 'cuda', 'cuda:0']):

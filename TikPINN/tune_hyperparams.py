@@ -10,6 +10,7 @@ import optuna
 import torch
 import numpy as np
 from optuna.samplers import TPESampler
+
 # from optuna.storages import JournalStorage, JournalFileStorage
 
 from main import get_problem_class, set_seed, check_config
@@ -104,22 +105,22 @@ def objective(trial, config, device):
     """
     # Sample hyperparameters
     q_width = trial.suggest_int('q_width', 32, 256, step=32)
-    q_depth = trial.suggest_int('q_depth', 2, 5)
+    q_depth = trial.suggest_int('q_depth', 2, 4)
     u_width = trial.suggest_int('u_width', 32, 256, step=32)
-    u_depth = trial.suggest_int('u_depth', 2, 5)
+    u_depth = trial.suggest_int('u_depth', 2, 6)
 
     # Sample activation functions
     activation_choices = ['tanh', 'relu6p', 'swish']
     q_activation = trial.suggest_categorical('q_activation', activation_choices)
     u_activation = trial.suggest_categorical('u_activation', activation_choices)
 
-    alpha = trial.suggest_float('alpha', 0.1, 10.0, log=True)
-    lamb = trial.suggest_float('lamb', 1e-10, 1e-4, log=True)
+    alpha = trial.suggest_float('alpha', 1, 10.0, log=True)
+    lamb = trial.suggest_float('lamb', 1e-9, 1e-5, log=True)
 
     q_lr = trial.suggest_float('q_lr', 1e-4, 1e-2, log=True)
     u_lr = trial.suggest_float('u_lr', 1e-4, 1e-2, log=True)
 
-    batch_size = trial.suggest_categorical('batch_size', [5000, 10000, 25000])
+    batch_size = trial.suggest_categorical('batch_size', [2500, 5000, 10000])
 
     # Modify config
     config = config.copy()
@@ -203,7 +204,7 @@ def main():
     parser.add_argument('--config_path', type=str, default='config/params.yml', help='Path to config file')
     parser.add_argument('--n_trials', type=int, default=50, help='Number of Optuna trials')
     parser.add_argument('--n_jobs', type=int, default=1, help='Number of parallel jobs')
-    parser.add_argument('--study_name', type=str, default='ex03', help='Study name for Optuna')
+    parser.add_argument('--study_name', type=str, default='ex04', help='Study name for Optuna')
     parser.add_argument('--storage', type=str, default='sqlite:///study.db', help='Optuna storage (e.g., sqlite:///study.db)')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='Device to use')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
@@ -221,7 +222,7 @@ def main():
         config = yaml.load(stream, yaml.FullLoader)
 
     # For tuning, reduce epochs to save time
-    config['train_params']['num_epochs'] = [10000, 0]  # [Adam, LBFGS]
+    config['train_params']['num_epochs'] = [5000, 0]  # [Adam, LBFGS]
     config['train_params']['pretrain_epochs_u'] = 1000
     config['train_params']['heatmap_every_n_epochs'] = 0  # Disable heatmap logging
     config['checkpoint_params']['save_top_k'] = 0

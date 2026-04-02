@@ -37,8 +37,16 @@ def get_problem_class(idx):
         return Example06Problem
     elif idx == "03":
         from GenerateData.problems import Example03Problem
-
         return Example03Problem
+
+    elif idx == "04":
+        from GenerateData.problems import Example04Problem
+
+        return Example04Problem
+    elif idx == "05":
+        from GenerateData.problems import Example05Problem
+
+        return Example05Problem
     else:
         raise ValueError(f"Unknown task idx: {idx}")
 

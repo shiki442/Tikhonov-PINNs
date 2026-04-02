@@ -1,0 +1,127 @@
+from dolfin import *
+from dolfin_adjoint import *
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import cm  # For custom color mapping
+import random
+from utils import generate_uniform_mesh, save_result, save_err_q
+
+np.random.seed(123)
+random.seed(123)
+parameters["reorder_dofs_serial"] = False
+# set_log_level(LogLevel.ERROR)
+
+d = 1.0
+# Create computational domain
+p0 = Point(0.0, 0.0)
+p1 = Point(d, d)
+mesh = RectangleMesh(p0, p1, 320, 320)
+
+# Create `MeshFunction` to mark boundaries
+boundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+class Left(SubDomain):  # Left boundary x = 0
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], 0)
+class Right(SubDomain):  # Right boundary x = d
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], d)
+class Top(SubDomain):  # Top boundary y = d
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], d)
+class Bottom(SubDomain):  # Bottom boundary y = 0
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], 0)
+
+def Inverse_potential(noise_level, lamb, max_iter=20):
+    # Define finite element space
+    V = FunctionSpace(mesh, "Lagrange", 1)
+
+    # Define trial and test functions
+    u = Function(V, name='State')
+    v = TestFunction(V)
+    q = interpolate(Constant(0.5), V)
+
+    # Calculate the analytic f
+    alpha = Constant(1.0)
+    # u_ex = 1 + 2*sin(πx)*sin(πy)
+    u_ex = Expression("1.0 + 2.0*sin(pi*x[0])*sin(pi*x[1])", degree=3)
+    # q_ex = 1 + 2*exp(-2*((x-0.6)^2 + (y-0.4)^2))
+    q_ex = Expression("1.0 + 2.0*exp(-5.0*((x[0]-0.8)*(x[0]-0.8) + (x[1]-0.2)*(x[1]-0.2)))", degree=3)
+    # D2u_ex = Δu_ex = -4*π²*sin(πx)*sin(πy)
+    D2u_ex = Expression("-4.0*pi*pi*sin(pi*x[0])*sin(pi*x[1])", degree=3)
+    # f = -D2u_ex + u_ex * q_ex = 4*π²*sin(πx)*sin(πy) + u_ex * q_ex
+    f = -D2u_ex + u_ex * q_ex
+
+    # Add noise to the observation data
+    u_obs = interpolate(u_ex, V)
+    scale = u_obs.vector().max()
+    random_noise = scale * noise_level * np.random.randn(len(u_obs.vector()))
+    u_obs.vector()[:] += random_noise
+
+    # Assign different numbers to different boundaries
+    Left().mark(boundaries, 1)
+    Right().mark(boundaries, 2)
+    Top().mark(boundaries, 3)
+    Bottom().mark(boundaries, 4)
+
+    # Create marked measure ds
+    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+
+    # Define different Neumann conditions (based on ∇u_ex)
+    # ∂u/∂x = 2π*cos(πx)*sin(πy), ∂u/∂y = 2π*sin(πx)*cos(πy)
+    g1 = Expression("-2.0*pi*cos(pi*x[0])*sin(pi*x[1])", degree=5)  # Left boundary (x=0): -∂u/∂x
+    g2 = Expression("2.0*pi*cos(pi*x[0])*sin(pi*x[1])", degree=5)   # Right boundary (x=1): ∂u/∂x
+    g3 = Expression("2.0*pi*sin(pi*x[0])*cos(pi*x[1])", degree=5)   # Top boundary (y=1): ∂u/∂y
+    g4 = Expression("-2.0*pi*sin(pi*x[0])*cos(pi*x[1])", degree=5)  # Bottom boundary (y=0): -∂u/∂y
+
+    # Define the variational form
+    a = alpha * inner(grad(u), grad(v)) * dx + q * u * v * dx
+    L = f * v * dx + g1 * v * ds(1) + g2 * v * ds(2) + g3 * v * ds(3) + g4 * v * ds(4)
+    F = a - L
+    solve(F == 0, u)
+
+    # Define the cost functional and Tikhonov regularization term
+    cost = 0.5 * (u - u_obs)**2 * dx
+    hess_q = grad(grad(q))
+    Tikh_reg = (q**2 + inner(grad(q), grad(q)) + inner(hess_q, hess_q)) * dx
+
+    err_q_history = []
+    state_history = []
+    # Define the callback function to store control history
+    def eval_cb(control_value):
+        control_error = errornorm(q_ex, control_value) / norm(interpolate(q_ex, V))
+        err_q_history.append(control_error)
+
+    # Define the optimization problem
+    J = assemble(cost) + lamb * assemble(Tikh_reg)
+    control = Control(q)
+    rf = ReducedFunctional(J, control, eval_cb_pre=eval_cb)
+    q_opt = minimize(rf, bounds=(1.0, 3.0), tol=1e-10, options={"gtol": 1e-10, "disp": True, "maxiter": max_iter})
+
+    # Recompute the state variable with the optimal control
+    q.assign(q_opt)
+    solve(F == 0, u)
+
+    values = u.compute_vertex_values()
+    print(values.shape)
+
+    # Compute the error
+    state_error = errornorm(u_ex, u) / norm(interpolate(u_ex, V))
+    control_error = errornorm(q_ex, q) / norm(interpolate(q_ex, V))
+    print("h(min):           %e." % mesh.hmin())
+    print("Error in state:   %e." % state_error)
+    print("Error in control: %e." % control_error)
+    save_result(u, q, lamb, noise_level, path="./output/gaussian_peak/")
+    save_err_q(err_q_history, lamb, noise_level, path="./output/gaussian_peak/")
+
+    tape = get_working_tape()
+    tape.clear_tape()
+    return J, state_error, control_error
+
+if __name__ == "__main__":
+    lamb_list = [1e-9]
+    delta_list = [0.1, 0.5]
+    for lamb in lamb_list:
+        for delta in delta_list:
+            print(f"Noise level: {delta}, Lambda: {lamb}")
+            _, _, err_q = Inverse_potential(delta, lamb, max_iter=20)

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python \"TikPINN\\\\GenerateData\\\\generate_data_1d.py\")"
+      "Bash(python \"TikPINN\\\\GenerateData\\\\generate_data_1d.py\")",
+      "Bash(find TikPINN/logs/ex03v1 -name *.txt -o -name *.csv)",
+      "Bash(python plot_ex03v1.py)",
+      "WebFetch(domain:iopscience.iop.org)"
     ]
   }
 }

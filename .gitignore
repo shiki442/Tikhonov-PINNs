@@ -17,6 +17,8 @@
 .DS_Store
 Thumbs.db
 
+TikPINN/.claude/
+
 # 数据文件
 *.txt
 *.png
@@ -25,12 +27,14 @@ Thumbs.db
 *.pdf
 *.log
 *.err
+*.pt
 *.out
 Figures/
 TikPINN/output/
 TikPINN/data/
 TikFEM/output/
 TikPINN_partobs/
+TikPINNold/
 
 # Python 缓存文件
 *.py[cod]
@@ -38,3 +42,4 @@ TikPINN_partobs/
 *.pyc
 TikPINN/model/__pycache__/
 TikPINN/config/
+TikPINN/logs/

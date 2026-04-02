@@ -1,24 +1,25 @@
 """
-Generate 2D data for Gaussian peak problem.
+Generate 2D data for circular inclusion problem.
 
-q(x,y) = 1.0 + 4.0 * exp(-40 * ((x-0.6)^2 + (y-0.4)^2))
-u(x,y) = 37.0 + 5.0 * sin(π*x) * sin(π*y)
+q(x,y) = { 5.0, if (x-0.4)^2 + (y-0.4)^2 <= 0.15^2
+         { 1.0, otherwise
+u(x,y) = 4*x*(1-x)*y*(1-y)
 
 This script generates data for multiple noise levels:
     - noise = 0.00 (0%, exact)
     - noise = 0.01 (1%)
-    - noise = 0.05 (5%)
     - noise = 0.10 (10%)
+    - noise = 0.50 (50%)
 """
 
 import os
-from problems.example03 import Example03Problem
+from problems.example04 import Example04Problem
 from generate_data import generate_data_nd, save_data_pt
 
 
 def main():
     # Create problem instance
-    problem = Example03Problem()
+    problem = Example04Problem()
 
     # Create output directory
     folder = './data/'
@@ -27,7 +28,7 @@ def main():
     # Noise levels
     noise_levels = [0.00, 0.01, 0.10, 0.50]
 
-    # Data generation parameters
+    # Data generation Parameters
     n_samples_int = 50000  # Interior samples
     n_samples_per_face = 5000  # Samples per boundary face
 
@@ -44,9 +45,9 @@ def main():
             problem=problem, noise_level=noise_level, n_samples_int=n_samples_int, n_samples_per_face=n_samples_per_face
         )
 
-        # Create filename: example03_data00.pt, example03_data01.pt, etc.
+        # Create filename: example04_data00.pt, example04_data01.pt, etc.
         noise_str = f"{int(noise_level * 100):02d}"
-        file_name = f"example03_data{noise_str}.pt"
+        file_name = f"example04_data{noise_str}.pt"
         file_path = os.path.join(folder, file_name)
 
         # Save to file

@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cd \"C:\\\\Users\\\\78103\\\\OneDrive\\\\PC\\\\Code Library\\\\Tikhonov-PINNs_new\\\\TikPINN\\\\GenerateData\" && python generate_data_example06.py)",
-      "Bash(cd \"C:\\\\Users\\\\78103\\\\OneDrive\\\\PC\\\\Code Library\\\\Tikhonov-PINNs_new\\\\TikPINN\" && python -c \"\nimport yaml\nimport sys\nsys.path.append\\('model'\\)\nfrom utils import check_config\n\nwith open\\('config/params.yml', 'r'\\) as stream:\n    config = yaml.load\\(stream, yaml.FullLoader\\)\n\nprint\\('=== Before check_config ==='\\)\nprint\\(f\\\\\"task.dim: {config['task']['dim']}\\\\\"\\)\nprint\\(f\\\\\"task.idx: {config['task']['idx']}\\\\\"\\)\n\nconfig = check_config\\(config\\)\n\nprint\\('\\\\\\\\n=== After check_config ==='\\)\nprint\\(f\\\\\"q_net_params.in_features: {config['q_net_params']['in_features']}\\\\\"\\)\nprint\\(f\\\\\"u_net_params.in_features: {config['u_net_params']['in_features']}\\\\\"\\)\nprint\\(f\\\\\"scheduler_params.total_steps: {config['scheduler_params']['total_steps']}\\\\\"\\)\nprint\\(f\\\\\"train_params.results_path: {config['train_params']['results_path']}\\\\\"\\)\nprint\\('\\\\\\\\nConfig check passed!'\\)\n\")",
-      "Bash(cd \"C:\\\\Users\\\\78103\\\\OneDrive\\\\PC\\\\Code Library\\\\Tikhonov-PINNs_new\\\\TikPINN\\\\GenerateData\\\\data\" && ls *.pt)"
-    ]
-  }
-}

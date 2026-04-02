@@ -32,6 +32,59 @@ class TikDataset(Dataset):
         return self.int_data[int_idx], self.bdy_data[bdy_idx]
 
 
+class BatchTikDataset(IterableDataset):
+    """Fast dataset that yields pre-batched data directly.
+
+    This avoids the overhead of __getitem__ and collate_fn by yielding
+    complete batches directly. Interior and boundary points are sampled
+    independently with replacement.
+
+    Yields exactly n_batches = ceil(n_int / batch_size) batches per epoch.
+    Each call to __iter__ starts a new epoch with fresh shuffling.
+    """
+    def __init__(self, int_data: Tensor, bdy_data: Tensor, batch_size: int, shuffle: bool = True):
+        """
+        Args:
+            int_data: Interior data tensor of shape (n_int, cols_int)
+            bdy_data: Boundary data tensor of shape (n_bdy, cols_bdy)
+            batch_size: Batch size
+            shuffle: Whether to shuffle indices
+        """
+        self.int_data = int_data
+        self.bdy_data = bdy_data
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.n_int = len(int_data)
+        self.n_bdy = len(bdy_data)
+        self.n_batches = (self.n_int + self.batch_size - 1) // self.batch_size
+
+    def __iter__(self):
+        """Called each time the dataset is iterated - starts a new epoch."""
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info:
+            # Split data among workers
+            per_worker = max(1, self.n_int // worker_info.num_workers)
+            start = worker_info.id * per_worker
+            end = min(start + per_worker, self.n_int) if worker_info.id < worker_info.num_workers - 1 else self.n_int
+            int_indices = torch.arange(start, end)
+        else:
+            int_indices = torch.arange(self.n_int)
+
+        # Shuffle indices at the start of each epoch (each call to __iter__)
+        if self.shuffle:
+            int_indices = int_indices[torch.randperm(len(int_indices))]
+
+        # Yield exactly n_batches batches
+        for start_idx in range(0, len(int_indices), self.batch_size):
+            batch_int_idx = int_indices[start_idx:start_idx + self.batch_size]
+            actual_batch_size = len(batch_int_idx)
+
+            # Sample boundary indices with replacement
+            batch_bdy_idx = torch.randint(0, self.n_bdy, (actual_batch_size,))
+
+            yield self.int_data[batch_int_idx], self.bdy_data[batch_bdy_idx]
+
+
 def tik_collate_fn(batch):
     """
     Collate function for TikDataset.
@@ -50,19 +103,23 @@ def get_dataloader(data_path, batch_size, idx, noise_str, n_samples):
     """
     Load data and create DataLoader.
     Supports both .pt (dictionary format) and .txt (legacy matrix format) files.
+    Uses FastTikDataset for improved performance.
     """
     pt_path = os.path.join(data_path, f"example{idx}_data{noise_str}.pt")
     txt_path = os.path.join(data_path, f"example{idx}data{noise_str}.txt")
 
     # Prefer .pt format if exists
     if os.path.exists(pt_path):
-        dataset = _load_dataset_pt(pt_path, n_samples)
+        int_data, bdy_data = _load_dataset_pt(pt_path, n_samples, return_tensors=True)
     elif os.path.exists(txt_path):
         dataset = _load_dataset_txt(txt_path, n_samples)
+        return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=tik_collate_fn)
     else:
         raise FileNotFoundError(f"Data file not found: {pt_path} or {txt_path}")
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=tik_collate_fn)
+    # Use BatchTikDataset for better performance
+    dataset = BatchTikDataset(int_data, bdy_data, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=None, num_workers=0)
     return dataloader
 
 
@@ -70,31 +127,38 @@ def get_ddp_dataloader(data_path, batch_size, idx, noise_str, n_samples, world_s
     """
     Load data and create DataLoader with DistributedSampler for DDP training.
     Supports both .pt and .txt formats.
+    Uses BatchTikDataset for improved performance.
     """
     pt_path = os.path.join(data_path, f"example{idx}_data{noise_str}.pt")
     txt_path = os.path.join(data_path, f"example{idx}data{noise_str}.txt")
 
     # Prefer .pt format if exists
     if os.path.exists(pt_path):
-        dataset = _load_dataset_pt(pt_path, n_samples)
+        int_data, bdy_data = _load_dataset_pt(pt_path, n_samples, return_tensors=True)
     elif os.path.exists(txt_path):
         dataset = _load_dataset_txt(txt_path, n_samples)
+        sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+        return DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=0, collate_fn=tik_collate_fn)
     else:
         raise FileNotFoundError(f"Data file not found: {pt_path} or {txt_path}")
 
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=0, collate_fn=tik_collate_fn)
+    # Use BatchTikDataset for better performance
+    dataset = BatchTikDataset(int_data, bdy_data, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=None, num_workers=0)
     return dataloader
 
 
-def _load_dataset_pt(file_path, n_samples=-1):
+def _load_dataset_pt(file_path, n_samples=-1, return_tensors=False):
     """
     Load dataset from .pt file (dictionary format).
 
     Supports both 1D and n-dimensional data.
 
-    Returns a TikDataset that stores interior and boundary data separately,
-    allowing independent sampling without forcing equal sample counts.
+    Args:
+        file_path: Path to .pt file
+        n_samples: Number of samples to use (-1 for all)
+        return_tensors: If True, return (int_data, bdy_data) tuple
+                       If False, return TikDataset (legacy behavior)
 
     Interior data format (each row):
         [int_x1, ..., int_xd, m_int, f_val, u_dagger, q_dagger]
@@ -139,6 +203,8 @@ def _load_dataset_pt(file_path, n_samples=-1):
     # Build boundary data tensor: [bdy_x, normal, m_bdy, g_val]
     bdy_data = torch.cat([bdy_points, normal_vec, m_bdy, g_val], dim=1)
 
+    if return_tensors:
+        return int_data, bdy_data
     return TikDataset(int_data, bdy_data)
 
 
